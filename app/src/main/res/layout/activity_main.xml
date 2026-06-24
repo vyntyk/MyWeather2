@@ -3,29 +3,16 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/background"
-<<<<<<< HEAD
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@drawable/foto4"
-    android:padding="16dp"
-=======
     android:layout_width="wrap_content"
     android:layout_height="match_parent"
     android:background="@drawable/foto4"
     android:textAlignment="center"
     android:padding="16dp"
     android:visibility="visible"
->>>>>>> origin/master
     tools:context=".MainActivity">
 
     <TextView
         android:id="@+id/logo"
-<<<<<<< HEAD
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
-        android:text="@string/app_name"
-=======
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginStart="6dp"
@@ -35,7 +22,6 @@
         android:inputType="text"
         android:text="@string/logo"
         android:textAlignment="center"
->>>>>>> origin/master
         android:textColor="@color/black"
         android:textSize="32sp"
         android:textStyle="bold"
@@ -43,29 +29,8 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-<<<<<<< HEAD
     <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/user_field_layout"
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-        android:layout_width="260dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
-        android:hint="@string/hint_city"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/logo">
-
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/user_field"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:inputType="text"
-            android:text="@string/default_city"
-            tools:ignore="TouchTargetSizeCheck" />
-=======
-
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@id/user_field2"
+        android:id="@+id/user_field2"
         android:layout_width="260dp"
         android:layout_height="wrap_content"
         android:layout_alignParentTop="true"
@@ -93,74 +58,12 @@
             android:textAlignment="center"
             app:layout_constraintEnd_toEndOf="parent"/>
 
->>>>>>> origin/master
     </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/main_btn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-<<<<<<< HEAD
-        android:layout_marginTop="16dp"
-        android:backgroundTint="#3E538F"
-        android:text="@string/btn_fetch"
-        app:cornerRadius="15dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/user_field_layout" />
-
-    <TextView
-        android:id="@+id/resultat"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
-        android:textColor="@color/black"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/main_btn"
-        tools:text="Температура: 20°C" />
-
-    <TextView
-        android:id="@+id/resultat2"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:textColor="@color/black"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/resultat"
-        tools:text="Ветер: 5 м/с" />
-
-    <TextView
-        android:id="@+id/resultat3"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:textColor="@color/black"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/resultat2"
-        tools:text="Давление: 1012 гПа" />
-
-    <TextView
-        android:id="@+id/resultat4"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:textColor="@color/black"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/resultat3"
-        tools:text="Влажность: 60%" />
-=======
         android:layout_centerHorizontal="true"
         android:layout_marginHorizontal="130dp"
         android:layout_marginTop="5dp"
@@ -249,70 +152,21 @@
         app:layout_constraintHorizontal_bias="0.718"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/resultat3" />
->>>>>>> origin/master
 
     <TextView
         android:id="@+id/resultat5"
         android:layout_width="wrap_content"
-<<<<<<< HEAD
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-=======
         android:layout_height="70dp"
         android:layout_below="@id/resultat4"
         android:layout_marginTop="8dp"
         android:fontFamily="@font/montserrat_bold"
         android:textAlignment="center"
->>>>>>> origin/master
         android:textColor="@color/black"
         android:textSize="24sp"
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/resultat4"
-<<<<<<< HEAD
-        tools:text="Ясно" />
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center"
-        android:orientation="horizontal"
-        app:layout_constraintBottom_toBottomOf="parent">
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn1"
-            android:layout_width="80dp"
-            android:layout_height="80dp"
-            android:layout_margin="8dp"
-            android:onClick="BG"
-            android:text="@string/bg1"
-            android:textSize="10sp"
-            app:cornerRadius="40dp" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn2"
-            android:layout_width="80dp"
-            android:layout_height="80dp"
-            android:layout_margin="8dp"
-            android:onClick="BG"
-            android:text="@string/bg2"
-            android:textSize="10sp"
-            app:cornerRadius="40dp" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn3"
-            android:layout_width="80dp"
-            android:layout_height="80dp"
-            android:layout_margin="8dp"
-            android:onClick="BG"
-            android:text="@string/bg3"
-            android:textSize="10sp"
-            app:cornerRadius="40dp" />
-    </LinearLayout>
-
-</androidx.constraintlayout.widget.ConstraintLayout>
-=======
         tools:text="погода" />
 
     <com.google.android.material.button.MaterialButton
@@ -367,4 +221,3 @@
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>
->>>>>>> origin/master

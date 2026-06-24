@@ -12,7 +12,7 @@ import retrofit2.Response;
  * Репозиторий погоды.
  *
  * Двухшаговый процесс:
- *   1. Geocoding API  → получаем lat/lon по названию города
+ *   1. Geocoding API       → получаем lat/lon по названию города
  *   2. Current Weather 2.5 → получаем текущую погоду по координатам
  *
  * Использование:
@@ -21,25 +21,37 @@ import retrofit2.Response;
  *       @Override public void onSuccess(WeatherResponse weather, GeoLocation geo) { ... }
  *       @Override public void onError(String message) { ... }
  *   });
+ *
+ * Примечание: callback всегда вызывается в потоке Retrofit (фоновый поток).
+ * Обновление UI внутри callback необходимо выполнять через runOnUiThread().
  */
 public class WeatherRepository {
 
     private static final String TAG   = "WeatherRepository";
-    private static final String UNITS = "metric";   // "imperial" для °F
-    private static final String LANG  = "ru";       // язык описания погоды
+    private static final String UNITS = "metric";  // "imperial" для °F
+    private static final String LANG  = "ru";      // язык описания погоды
 
     private final WeatherApiService apiService =
             RetrofitClient.getInstance().getApiService();
 
     private final Object requestLock = new Object();
     private Call<List<GeoLocation>> geocodeCall;
-    private Call<WeatherResponse> weatherCall;
+    private Call<WeatherResponse>   weatherCall;
     private long requestId = 0L;
 
     // ──────────────────────────────────────────────────────────────────────
     /** Публичный интерфейс обратного вызова */
     public interface WeatherCallback {
+        /**
+         * Вызывается в фоновом потоке Retrofit.
+         * Для обновления UI используйте runOnUiThread().
+         */
         void onSuccess(WeatherResponse weather, GeoLocation geo);
+
+        /**
+         * Вызывается в фоновом потоке Retrofit.
+         * Для обновления UI используйте runOnUiThread().
+         */
         void onError(String message);
     }
 
@@ -49,7 +61,7 @@ public class WeatherRepository {
      *
      * @param city     название города, например "London"
      * @param country  код страны (ISO 3166-1 alpha-2), например "GB"; можно null
-     * @param callback результат или ошибка
+     * @param callback результат или ошибка (вызывается в фоновом потоке)
      */
     public void fetchWeather(String city, String country, WeatherCallback callback) {
         if (callback == null) {
@@ -57,7 +69,7 @@ public class WeatherRepository {
         }
 
         String apiKey = BuildConfig.OPENWEATHER_API_KEY;
-        if (apiKey.isEmpty()) {
+        if (apiKey == null || apiKey.trim().isEmpty()) {
             callback.onError("API-ключ не настроен. Добавьте OPENWEATHER_API_KEY в local.properties");
             return;
         }
@@ -105,7 +117,7 @@ public class WeatherRepository {
 
                 Log.d(TAG, "Координаты: " + geo.lat + ", " + geo.lon);
 
-                // ── ШАГ 2: Current Weather 2.5 ────────────────────
+                // ── ШАГ 2: Current Weather 2.5 ────────────────────────────
                 fetchCurrentWeather(geo, apiKey, callback, currentRequestId);
             }
 
@@ -173,6 +185,8 @@ public class WeatherRepository {
      */
     public void cancelPendingRequests() {
         synchronized (requestLock) {
+            // FIX: инкремент requestId выполняется внутри того же synchronized-блока,
+            // что и отмена запросов — устраняет окно гонки между двумя операциями.
             cancelPendingRequestsLocked();
             requestId++;
         }
