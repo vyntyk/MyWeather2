@@ -2,6 +2,8 @@ package com.home.myweather;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.location.Location;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
@@ -12,8 +14,14 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.core.content.ContextCompat;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
 import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
@@ -28,6 +36,26 @@ public class MainActivity extends AppCompatActivity {
     private WeatherRepository weatherRepository;
     private WeatherResponse lastWeather;
     private int selectedBgRes = R.drawable.foto4;
+    private FusedLocationProviderClient fusedLocationClient;
+
+    // Лаунчер запроса разрешений — должен быть создан до onCreate()
+    private final ActivityResultLauncher<String[]> locationPermissionRequest =
+            registerForActivityResult(
+                    new ActivityResultContracts.RequestMultiplePermissions(),
+                    permissions -> {
+                        boolean fine = Boolean.TRUE.equals(
+                                permissions.get(android.Manifest.permission.ACCESS_FINE_LOCATION));
+                        boolean coarse = Boolean.TRUE.equals(
+                                permissions.get(android.Manifest.permission.ACCESS_COARSE_LOCATION));
+                        if (fine || coarse) {
+                            getLocationAndFetchWeather();
+                        } else {
+                            Toast.makeText(this,
+                                    "Разрешение на геолокацию отклонено",
+                                    Toast.LENGTH_LONG).show();
+                        }
+                    }
+            );
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,6 +76,10 @@ public class MainActivity extends AppCompatActivity {
         Button main_btn = findViewById(R.id.main_btn);
 
         weatherRepository = new WeatherRepository();
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+
+        Button geo_btn = findViewById(R.id.geo_btn);
+        geo_btn.setOnClickListener(view -> requestLocationOrFetch());
 
         if (savedInstanceState != null) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -144,6 +176,88 @@ public class MainActivity extends AppCompatActivity {
         } else {
             resultat5.setText("—");
         }
+    }
+
+    /** Проверяем разрешения — если есть, сразу берём локацию; иначе запрашиваем. */
+    private void requestLocationOrFetch() {
+        boolean hasFine = ContextCompat.checkSelfPermission(
+                this, android.Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED;
+        boolean hasCoarse = ContextCompat.checkSelfPermission(
+                this, android.Manifest.permission.ACCESS_COARSE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED;
+
+        if (hasFine || hasCoarse) {
+            getLocationAndFetchWeather();
+        } else {
+            locationPermissionRequest.launch(new String[]{
+                    android.Manifest.permission.ACCESS_FINE_LOCATION,
+                    android.Manifest.permission.ACCESS_COARSE_LOCATION
+            });
+        }
+    }
+
+    /** Получаем последнюю известную позицию через FusedLocationProvider. */
+    @SuppressLint("MissingPermission")
+    private void getLocationAndFetchWeather() {
+        resultat.setText("Определяем местоположение...");
+        resultat2.setText("—");
+        resultat3.setText("—");
+        resultat4.setText("—");
+        resultat5.setText("—");
+
+        fusedLocationClient
+                .getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null)
+                .addOnSuccessListener(this, location -> {
+                    if (isDestroyed() || isFinishing()) return;
+                    if (location != null) {
+                        fetchWeatherByCoords(location);
+                    } else {
+                        resultat.setText("Не удалось определить позицию");
+                        Toast.makeText(this,
+                                "Включите GPS или повторите попытку",
+                                Toast.LENGTH_LONG).show();
+                    }
+                })
+                .addOnFailureListener(this, e -> {
+                    if (isDestroyed() || isFinishing()) return;
+                    resultat.setText("Ошибка геолокации");
+                    Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
+                });
+    }
+
+    /** Получив координаты, запрашиваем погоду напрямую через WeatherRepository. */
+    private void fetchWeatherByCoords(Location location) {
+        weatherRepository.fetchWeatherByCoords(
+                location.getLatitude(),
+                location.getLongitude(),
+                new WeatherRepository.WeatherCallback() {
+                    @Override
+                    public void onSuccess(WeatherResponse weather, GeoLocation geo) {
+                        runOnUiThread(() -> {
+                            if (isDestroyed() || isFinishing()) return;
+                            lastWeather = weather;
+                            // Показываем название города из ответа API в поле ввода
+                            if (weather.getName() != null && !weather.getName().isEmpty()) {
+                                user_field.setText(weather.getName());
+                            }
+                            updateUI(weather);
+                        });
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        runOnUiThread(() -> {
+                            if (isDestroyed() || isFinishing()) return;
+                            resultat.setText("Нет соединения с интернетом");
+                            resultat2.setText("—");
+                            resultat3.setText("—");
+                            resultat4.setText("—");
+                            resultat5.setText("—");
+                            Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show();
+                        });
+                    }
+                });
     }
 
     public void BG(View view) {

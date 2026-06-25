@@ -57,6 +57,37 @@ public class WeatherRepository {
 
     // ──────────────────────────────────────────────────────────────────────
     /**
+     * Запрашивает погоду напрямую по координатам (GPS / FusedLocation).
+     * Геокодирование не нужно — пропускаем шаг 1 и сразу делаем шаг 2.
+     *
+     * @param lat      широта
+     * @param lon      долгота
+     * @param callback результат или ошибка (вызывается в фоновом потоке)
+     */
+    public void fetchWeatherByCoords(double lat, double lon, WeatherCallback callback) {
+        if (callback == null) {
+            throw new IllegalArgumentException("callback must not be null");
+        }
+        String apiKey = BuildConfig.OPENWEATHER_API_KEY;
+        if (apiKey == null || apiKey.trim().isEmpty()) {
+            callback.onError("API-ключ не настроен. Добавьте OPENWEATHER_API_KEY в local.properties");
+            return;
+        }
+        // Создаём заглушку-заголовок GeoLocation с GPS-координатами
+        GeoLocation gpsGeo = new GeoLocation();
+        gpsGeo.lat  = lat;
+        gpsGeo.lon  = lon;
+        gpsGeo.name = "GPS";
+
+        final long currentRequestId;
+        synchronized (requestLock) {
+            cancelPendingRequestsLocked();
+            currentRequestId = ++requestId;
+        }
+        fetchCurrentWeather(gpsGeo, apiKey, callback, currentRequestId);
+    }
+
+    /**
      * Запрашивает погоду по названию города.
      *
      * @param city     название города, например "London"
