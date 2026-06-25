@@ -5,6 +5,8 @@ import android.content.Context;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
@@ -31,6 +33,10 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // Скрываем навигационную панель (три кнопки) и статусбар —
+        // immersive sticky: панели появляются по свайпу и снова прячутся.
+        hideSystemUI();
 
         resultat  = findViewById(R.id.resultat);
         resultat2 = findViewById(R.id.resultat2);
@@ -100,7 +106,7 @@ public class MainActivity extends AppCompatActivity {
                 // FIX: аналогичная защита для ветки ошибки
                 runOnUiThread(() -> {
                     if (isDestroyed() || isFinishing()) return;
-                    resultat.setText("Ошибка, нужен В..Н, интернет не работает");
+                    resultat.setText("Нет соединения с интернетом");
                     resultat2.setText("—");
                     resultat3.setText("—");
                     resultat4.setText("—");
@@ -113,28 +119,27 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateUI(WeatherResponse weather) {
         // FIX: защита от NPE — проверяем все вложенные объекты перед обращением
-        if (weather == null || weather.main == null) return;
+        if (weather == null || weather.getMain() == null) return;
 
         resultat.setText(String.format(Locale.getDefault(),
-                "Температура: %.1f°C", weather.main.temp));
+                "Температура: %.1f°C", weather.getMain().getTemp()));
 
-        if (weather.wind != null) {
+        if (weather.getWind() != null) {
             resultat2.setText(String.format(Locale.getDefault(),
-                    "Ветер: %.1f м/с", weather.wind.speed));
+                    "Ветер: %.1f м/с", weather.getWind().getSpeed()));
         } else {
             resultat2.setText("Ветер: нет данных");
         }
 
         resultat3.setText(String.format(Locale.getDefault(),
-                "Давление: %d гПа", weather.main.pressure));
+                "Давление: %d гПа", weather.getMain().getPressure()));
 
         resultat4.setText(String.format(Locale.getDefault(),
-                "Влажность: %d%%", weather.main.humidity));
+                "Влажность: %d%%", weather.getMain().getHumidity()));
 
-        if (weather.weather != null
-                && weather.weather.length > 0
-                && weather.weather[0] != null) {
-            String desc = weather.weather[0].description;
+        WeatherResponse.WeatherCondition[] conditions = weather.getWeather();
+        if (conditions != null && conditions.length > 0 && conditions[0] != null) {
+            String desc = conditions[0].getDescription();
             resultat5.setText(desc != null && !desc.isEmpty() ? desc : "—");
         } else {
             resultat5.setText("—");
@@ -154,6 +159,36 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         mBackground.setBackgroundResource(selectedBgRes);
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        // Переход из другого приложения / шторка возвращает панели — прячем снова.
+        if (hasFocus) hideSystemUI();
+    }
+
+    @SuppressLint("WrongConstant")
+    private void hideSystemUI() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // Android 11+ (API 30+) — новый API
+            WindowInsetsController controller =
+                    getWindow().getInsetsController();
+            if (controller != null) {
+                controller.hide(WindowInsets.Type.systemBars());
+                controller.setSystemBarsBehavior(
+                        WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            }
+        } else {
+            // Android 7–10 (API 25–29) — старый API
+            getWindow().getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                            | View.SYSTEM_UI_FLAG_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+        }
     }
 
     @Override

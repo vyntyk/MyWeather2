@@ -208,10 +208,10 @@ public class WeatherRepository {
     }
 
     private static boolean isValidWeatherResponse(WeatherResponse response) {
-        return response.main != null
-                && response.weather != null
-                && response.weather.length > 0
-                && response.weather[0] != null;
+        return response.getMain() != null
+                && response.getWeather() != null
+                && response.getWeather().length > 0
+                && response.getWeather()[0] != null;
     }
 
     private static String networkErrorMessage(Throwable t) {

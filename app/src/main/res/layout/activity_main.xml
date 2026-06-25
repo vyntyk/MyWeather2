@@ -140,11 +140,17 @@
         tools:text="Ясно" />
 
     <LinearLayout
+        android:id="@+id/bg_buttons"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
         android:gravity="center"
         android:orientation="horizontal"
-        app:layout_constraintBottom_toBottomOf="parent">
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/resultat5"
+        app:layout_constraintVertical_bias="1.0">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn1"

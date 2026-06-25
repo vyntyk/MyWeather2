@@ -19,7 +19,6 @@ public class RetrofitClient {
     private static final String BASE_URL = "https://api.openweathermap.org/";
     private static final int TIMEOUT_SECONDS = 15;
 
-    private static RetrofitClient instance;
     private final WeatherApiService apiService;
 
     private RetrofitClient() {
@@ -44,11 +43,16 @@ public class RetrofitClient {
         apiService = retrofit.create(WeatherApiService.class);
     }
 
-    public static synchronized RetrofitClient getInstance() {
-        if (instance == null) {
-            instance = new RetrofitClient();
-        }
-        return instance;
+    /**
+     * Holder-идиома Singleton — потокобезопасна без synchronized.
+     * Класс Holder инициализируется JVM лениво, только при первом вызове getInstance().
+     */
+    private static final class Holder {
+        static final RetrofitClient INSTANCE = new RetrofitClient();
+    }
+
+    public static RetrofitClient getInstance() {
+        return Holder.INSTANCE;
     }
 
     public WeatherApiService getApiService() {
