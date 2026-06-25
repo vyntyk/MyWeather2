@@ -2,6 +2,7 @@ package com.home.myweather;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
@@ -43,7 +44,11 @@ public class MainActivity extends AppCompatActivity {
         weatherRepository = new WeatherRepository();
 
         if (savedInstanceState != null) {
-            lastWeather   = (WeatherResponse) savedInstanceState.getSerializable("last_weather");
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                lastWeather = savedInstanceState.getSerializable("last_weather", WeatherResponse.class);
+            } else {
+                lastWeather = (WeatherResponse) savedInstanceState.getSerializable("last_weather");
+            }
             selectedBgRes = savedInstanceState.getInt("bg_res", R.drawable.foto4);
             if (lastWeather != null) {
                 updateUI(lastWeather);
@@ -136,7 +141,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    @SuppressLint("NonConstantResourceId")
     public void BG(View view) {
         int id = view.getId();
         if (id == R.id.btn1) {

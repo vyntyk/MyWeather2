@@ -3,12 +3,10 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/background"
-    android:layout_width="wrap_content"
+    android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/foto4"
-    android:textAlignment="center"
     android:padding="16dp"
-    android:visibility="visible"
     tools:context=".MainActivity">
 
     <TextView
@@ -18,8 +16,7 @@
         android:layout_marginStart="6dp"
         android:layout_marginTop="12dp"
         android:layout_marginEnd="7dp"
-        android:fontFamily="@font/montserrat_bold"
-        android:inputType="text"
+        android:fontFamily="sans-serif"
         android:text="@string/logo"
         android:textAlignment="center"
         android:textColor="@color/black"
@@ -30,136 +27,107 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/user_field2"
+        android:id="@+id/user_field_layout"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
         android:layout_width="260dp"
         android:layout_height="wrap_content"
-        android:layout_alignParentTop="true"
-        android:layout_centerHorizontal="true"
         android:layout_marginTop="32dp"
         android:hint="Введите название города"
-        android:inputType="text"
-        android:textAlignment="center"
-        app:circularflow_viewCenter="@string/hint_user"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/logo"
-        >
+        app:layout_constraintTop_toBottomOf="@+id/logo">
 
         <com.google.android.material.textfield.TextInputEditText
-
             android:id="@+id/user_field"
             android:layout_width="match_parent"
-            android:textSize="32sp"
-            android:layout_height="66dp"
-            android:layout_alignParentEnd="true"
-            android:layout_alignParentBottom="true"
-            android:layout_marginEnd="4dp"
+            android:layout_height="wrap_content"
             android:inputType="text"
             android:textAlignment="center"
-            app:layout_constraintEnd_toEndOf="parent"/>
-
+            android:textColor="@color/black"
+            tools:ignore="TouchTargetSizeCheck" />
     </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/main_btn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_centerHorizontal="true"
-        android:layout_marginHorizontal="130dp"
-        android:layout_marginTop="5dp"
-        android:layout_marginBottom="46dp"
+        android:layout_marginTop="16dp"
         android:backgroundTint="#3E538F"
-        android:fontFamily="@font/montserrat_bold"
+        android:fontFamily="sans-serif"
         android:text="@string/input_city"
         android:textColor="@color/black"
         android:textSize="16sp"
         app:cornerRadius="15dp"
-        app:layout_constraintBottom_toTopOf="@+id/resultat5"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/user_field2"
-        app:layout_constraintVertical_bias="0.0">
-
-    </com.google.android.material.button.MaterialButton>
+        app:layout_constraintTop_toBottomOf="@+id/user_field_layout" />
 
     <TextView
         android:id="@+id/resultat"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/main_btn"
         android:layout_marginTop="16dp"
-        android:layout_marginBottom="8dp"
-        android:fontFamily="@font/montserrat_bold"
-        android:inputType="text"
+        android:fontFamily="sans-serif"
         android:textAlignment="center"
         android:textColor="@color/black"
         android:textSize="24sp"
         android:textStyle="bold"
-        app:layout_constraintBottom_toTopOf="@+id/resultat2"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/main_btn" />
+        app:layout_constraintTop_toBottomOf="@+id/main_btn"
+        tools:text="Температура: 20°C" />
 
     <TextView
         android:id="@+id/resultat2"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/resultat"
-        android:layout_marginBottom="8dp"
-        android:fontFamily="@font/montserrat_bold"
-        android:inputType="text"
+        android:layout_marginTop="8dp"
+        android:fontFamily="sans-serif"
         android:textAlignment="center"
         android:textColor="@color/black"
         android:textSize="24sp"
         android:textStyle="bold"
-        app:layout_constraintBottom_toTopOf="@+id/resultat3"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/resultat" />
+        app:layout_constraintTop_toBottomOf="@+id/resultat"
+        tools:text="Ветер: 5 м/с" />
 
     <TextView
         android:id="@+id/resultat3"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/resultat2"
-        android:layout_marginBottom="8dp"
-        android:fontFamily="@font/montserrat_bold"
-        android:inputType="text"
+        android:layout_marginTop="8dp"
+        android:fontFamily="sans-serif"
         android:textAlignment="center"
         android:textColor="@color/black"
         android:textSize="24sp"
         android:textStyle="bold"
-        app:layout_constraintBottom_toTopOf="@+id/resultat4"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/resultat2" />
+        app:layout_constraintTop_toBottomOf="@+id/resultat2"
+        tools:text="Давление: 1012 гПа" />
 
     <TextView
         android:id="@+id/resultat4"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/resultat3"
-        android:layout_marginBottom="8dp"
-        android:fontFamily="@font/montserrat_bold"
-        android:inputType="text"
+        android:layout_marginTop="8dp"
+        android:fontFamily="sans-serif"
         android:textAlignment="center"
         android:textColor="@color/black"
         android:textSize="24sp"
         android:textStyle="bold"
-        app:layout_constraintBottom_toTopOf="@+id/resultat5"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.718"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/resultat3" />
+        app:layout_constraintTop_toBottomOf="@+id/resultat3"
+        tools:text="Влажность: 60%" />
 
     <TextView
         android:id="@+id/resultat5"
-        android:layout_width="wrap_content"
-        android:layout_height="70dp"
-        android:layout_below="@id/resultat4"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:fontFamily="@font/montserrat_bold"
+        android:fontFamily="sans-serif"
         android:textAlignment="center"
         android:textColor="@color/black"
         android:textSize="24sp"
@@ -167,57 +135,44 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/resultat4"
-        tools:text="погода" />
+        tools:text="Ясно" />
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn1"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_alignParentStart="true"
-        android:layout_alignParentBottom="true"
-        android:layout_marginStart="16dp"
-        android:layout_marginBottom="20dp"
-        android:onClick="BG"
-        android:text="ФОН 1"
-        android:textSize="14sp"
-        app:cornerRadius="35dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        tools:visibility="visible" />
+        android:gravity="center"
+        android:orientation="horizontal"
+        app:layout_constraintBottom_toBottomOf="parent">
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn2"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:layout_marginBottom="20dp"
-        android:layout_toStartOf="@+id/btn3"
-        android:layout_toEndOf="@+id/btn1"
-        android:onClick="BG"
-        android:text="ФОН 2"
-        android:textSize="14sp"
-        android:visibility="visible"
-        app:cornerRadius="35dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.498"
-        app:layout_constraintStart_toStartOf="parent" />
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn1"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:layout_margin="8dp"
+            android:onClick="BG"
+            android:text="ФОН 1"
+            android:textSize="10sp"
+            app:cornerRadius="40dp" />
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn3"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentEnd="true"
-        android:layout_alignParentBottom="true"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="20dp"
-        android:onClick="BG"
-        android:text="ФОН 3"
-        android:textSize="14sp"
-        android:visibility="visible"
-        app:cornerRadius="35dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn2"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:layout_margin="8dp"
+            android:onClick="BG"
+            android:text="ФОН 2"
+            android:textSize="10sp"
+            app:cornerRadius="40dp" />
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn3"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:layout_margin="8dp"
+            android:onClick="BG"
+            android:text="ФОН 3"
+            android:textSize="10sp"
+            app:cornerRadius="40dp" />
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
