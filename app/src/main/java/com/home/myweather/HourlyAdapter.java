@@ -4,18 +4,16 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-/**
- * Адаптер для почасового (на самом деле каждые 3 часа) прогноза.
- * Горизонтальный RecyclerView.
- */
 public class HourlyAdapter extends RecyclerView.Adapter<HourlyAdapter.ViewHolder> {
 
     private final List<ForecastItem> items = new ArrayList<>();
@@ -39,8 +37,7 @@ public class HourlyAdapter extends RecyclerView.Adapter<HourlyAdapter.ViewHolder
     public void onBindViewHolder(@NonNull ViewHolder h, int position) {
         ForecastItem item = items.get(position);
 
-        String time = timeFormat.format(new Date(item.timestamp * 1000L));
-        h.tvTime.setText(time);
+        h.tvTime.setText(timeFormat.format(new Date(item.timestamp * 1000L)));
 
         if (item.main != null) {
             h.tvTemp.setText(String.format(Locale.getDefault(), "%.0f°", item.main.temp));
@@ -48,19 +45,17 @@ public class HourlyAdapter extends RecyclerView.Adapter<HourlyAdapter.ViewHolder
             h.tvTemp.setText("—");
         }
 
-        if (item.weather != null && item.weather.length > 0 && item.weather[0] != null) {
-            String desc = item.weather[0].description;
-            h.tvDesc.setText(desc != null ? desc : "—");
-        } else {
-            h.tvDesc.setText("—");
-        }
+        h.tvDesc.setText(String.format(Locale.getDefault(), "Осадки\n%.0f%%", item.pop * 100));
     }
 
     @Override
-    public int getItemCount() { return items.size(); }
+    public int getItemCount() {
+        return items.size();
+    }
 
     static class ViewHolder extends RecyclerView.ViewHolder {
         final TextView tvTime, tvTemp, tvDesc;
+
         ViewHolder(View v) {
             super(v);
             tvTime = v.findViewById(R.id.tv_time);

@@ -6,6 +6,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -18,16 +19,17 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-/**
- * Фрагмент «5 дней» — полный прогноз на 5 дней с карточками по дням.
- */
 public class ForecastFragment extends Fragment {
+
+    private static final String STATE_GEO = "geo";
+    private static final String STATE_DAYS = "days";
 
     private RecyclerView rvDaily;
     private TextView tvPlaceholder;
     private DailyAdapter dailyAdapter;
     private WeatherRepository weatherRepository;
     private GeoLocation currentGeo;
+    private ArrayList<DailyData> cachedDays = new ArrayList<>();
 
     @Nullable
     @Override
@@ -48,24 +50,58 @@ public class ForecastFragment extends Fragment {
 
         weatherRepository = new WeatherRepository();
 
+        if (savedInstanceState != null) {
+            currentGeo = (GeoLocation) savedInstanceState.getSerializable(STATE_GEO);
+            ArrayList<DailyData> restoredDays =
+                    (ArrayList<DailyData>) savedInstanceState.getSerializable(STATE_DAYS);
+            if (restoredDays != null) cachedDays = restoredDays;
+        }
+
+        if (!cachedDays.isEmpty()) {
+            showCachedDays();
+        } else if (currentGeo != null) {
+            setGeoLocation(currentGeo);
+        } else {
+            showPlaceholder();
+        }
+
         return v;
     }
 
     public void setGeoLocation(GeoLocation geo) {
-        this.currentGeo = geo;
-        if (geo != null) {
-            showList();
-            loadForecast(geo.lat, geo.lon);
+        if (geo == null) return;
+
+        boolean sameGeo = currentGeo != null
+                && Double.compare(currentGeo.lat, geo.lat) == 0
+                && Double.compare(currentGeo.lon, geo.lon) == 0;
+        currentGeo = geo;
+
+        if (rvDaily == null || tvPlaceholder == null || dailyAdapter == null) return;
+
+        if (sameGeo && !cachedDays.isEmpty()) {
+            showCachedDays();
+            return;
         }
+
+        cachedDays.clear();
+        showList();
+        loadForecast(geo.lat, geo.lon);
     }
 
     public void showPlaceholder() {
+        if (rvDaily == null || tvPlaceholder == null) return;
         rvDaily.setVisibility(View.GONE);
         tvPlaceholder.setVisibility(View.VISIBLE);
         tvPlaceholder.setText("Сначала найдите погоду на вкладке «Сейчас»\n\nЗатем вернитесь сюда для прогноза на 5 дней");
     }
 
+    private void showCachedDays() {
+        showList();
+        dailyAdapter.setDays(cachedDays);
+    }
+
     private void showList() {
+        if (rvDaily == null || tvPlaceholder == null) return;
         rvDaily.setVisibility(View.VISIBLE);
         tvPlaceholder.setVisibility(View.GONE);
     }
@@ -76,11 +112,13 @@ public class ForecastFragment extends Fragment {
             public void onSuccess(ForecastResponse forecast) {
                 if (isAdded() && getActivity() != null && !getActivity().isDestroyed()) {
                     requireActivity().runOnUiThread(() -> {
-                        List<DailyData> days = groupByDay(forecast.list);
-                        dailyAdapter.setDays(days);
+                        List<ForecastItem> source = forecast != null ? forecast.list : null;
+                        cachedDays = new ArrayList<>(groupByDay(source));
+                        dailyAdapter.setDays(cachedDays);
                     });
                 }
             }
+
             @Override
             public void onError(String message) {
                 if (isAdded() && getActivity() != null && !getActivity().isDestroyed()) {
@@ -91,9 +129,6 @@ public class ForecastFragment extends Fragment {
         });
     }
 
-    /**
-     * Группирует 3-часовые блоки по дням.
-     */
     private List<DailyData> groupByDay(List<ForecastItem> items) {
         List<DailyData> result = new ArrayList<>();
         if (items == null || items.isEmpty()) return result;
@@ -117,18 +152,31 @@ public class ForecastFragment extends Fragment {
                 }
                 result.add(current);
                 currentDay = day;
-            } else {
-                if (current != null) {
-                    current.items.add(item);
-                    if (item.main != null) {
-                        current.tempMin = Math.min(current.tempMin, item.main.temp);
-                        current.tempMax = Math.max(current.tempMax, item.main.temp);
-                    }
-                    current.pop = Math.max(current.pop, item.pop);
+            } else if (current != null) {
+                current.items.add(item);
+                if (item.main != null) {
+                    current.tempMin = Math.min(current.tempMin, item.main.temp);
+                    current.tempMax = Math.max(current.tempMax, item.main.temp);
                 }
+                current.pop = Math.max(current.pop, item.pop);
             }
         }
         return result;
+    }
+
+    @Override
+    public void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (currentGeo != null) outState.putSerializable(STATE_GEO, currentGeo);
+        outState.putSerializable(STATE_DAYS, cachedDays);
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        rvDaily = null;
+        tvPlaceholder = null;
+        dailyAdapter = null;
     }
 
     @Override

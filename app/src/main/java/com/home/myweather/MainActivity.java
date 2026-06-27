@@ -5,15 +5,14 @@ import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.widget.Toast;
+
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
+
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
-/**
- * Главная Activity с BottomNavigationView и 5 фрагментами.
- * Сохраняет lastGeo при пересоздании и передаёт между фрагментами.
- */
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG_NOW = "now";
@@ -21,6 +20,8 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG_MAP = "map";
     private static final String TAG_CITIES = "cities";
     private static final String TAG_SETTINGS = "settings";
+    private static final String STATE_SELECTED_NAV = "selected_nav";
+    private static final String STATE_LAST_GEO = "last_geo";
 
     private NowFragment nowFragment;
     private ForecastFragment forecastFragment;
@@ -30,6 +31,7 @@ public class MainActivity extends AppCompatActivity {
 
     private LocationHelper locationHelper;
     private GeoLocation lastGeo;
+    private int selectedNavItemId = R.id.nav_now;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,65 +39,76 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         locationHelper = new LocationHelper(this);
-
         BottomNavigationView bottomNav = findViewById(R.id.bottom_nav);
 
-        if (savedInstanceState == null) {
-            nowFragment = new NowFragment();
-            forecastFragment = new ForecastFragment();
-            mapFragment = new MapFragment();
-            citiesFragment = new CitiesFragment();
-            settingsFragment = new SettingsFragment();
+        restoreFragments();
 
-            showFragment(nowFragment, TAG_NOW);
-            bottomNav.setSelectedItemId(R.id.nav_now);
-        } else {
-            // Восстанавливаем фрагменты из FragmentManager
-            nowFragment = (NowFragment) getSupportFragmentManager().findFragmentByTag(TAG_NOW);
-            forecastFragment = (ForecastFragment) getSupportFragmentManager().findFragmentByTag(TAG_FORECAST);
-            mapFragment = (MapFragment) getSupportFragmentManager().findFragmentByTag(TAG_MAP);
-            citiesFragment = (CitiesFragment) getSupportFragmentManager().findFragmentByTag(TAG_CITIES);
-            settingsFragment = (SettingsFragment) getSupportFragmentManager().findFragmentByTag(TAG_SETTINGS);
-
-            // Восстанавливаем координаты
-            double lat = savedInstanceState.getDouble("last_lat", Double.NaN);
-            double lon = savedInstanceState.getDouble("last_lon", Double.NaN);
-            String name = savedInstanceState.getString("last_name", null);
-            if (!Double.isNaN(lat) && !Double.isNaN(lon)) {
-                lastGeo = new GeoLocation();
-                lastGeo.lat = lat;
-                lastGeo.lon = lon;
-                lastGeo.name = name;
-            }
+        if (savedInstanceState != null) {
+            selectedNavItemId = savedInstanceState.getInt(STATE_SELECTED_NAV, R.id.nav_now);
+            lastGeo = (GeoLocation) savedInstanceState.getSerializable(STATE_LAST_GEO);
         }
 
         bottomNav.setOnItemSelectedListener(item -> {
-            int id = item.getItemId();
-            if (id == R.id.nav_now) {
-                showFragment(nowFragment, TAG_NOW);
-                return true;
-            } else if (id == R.id.nav_forecast) {
-                showFragment(forecastFragment, TAG_FORECAST);
-                if (lastGeo != null) {
-                    forecastFragment.setGeoLocation(lastGeo);
+            selectedNavItemId = item.getItemId();
+            getSupportFragmentManager().popBackStack();
+            showSelectedFragment(selectedNavItemId);
+            return true;
+        });
+
+        if (bottomNav.getSelectedItemId() == selectedNavItemId) {
+            showSelectedFragment(selectedNavItemId);
+        } else {
+            bottomNav.setSelectedItemId(selectedNavItemId);
+        }
+
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (getSupportFragmentManager().getBackStackEntryCount() > 0) {
+                    getSupportFragmentManager().popBackStack();
+                } else if (selectedNavItemId != R.id.nav_now) {
+                    bottomNav.setSelectedItemId(R.id.nav_now);
                 } else {
-                    forecastFragment.showPlaceholder();
+                    setEnabled(false);
+                    getOnBackPressedDispatcher().onBackPressed();
                 }
-                return true;
-            } else if (id == R.id.nav_map) {
-                showFragment(mapFragment, TAG_MAP);
-                return true;
-            } else if (id == R.id.nav_cities) {
-                showFragment(citiesFragment, TAG_CITIES);
-                return true;
-            } else if (id == R.id.nav_settings) {
-                showFragment(settingsFragment, TAG_SETTINGS);
-                return true;
             }
-            return false;
         });
 
         hideSystemUI();
+    }
+
+    private void restoreFragments() {
+        nowFragment = (NowFragment) getSupportFragmentManager().findFragmentByTag(TAG_NOW);
+        forecastFragment = (ForecastFragment) getSupportFragmentManager().findFragmentByTag(TAG_FORECAST);
+        mapFragment = (MapFragment) getSupportFragmentManager().findFragmentByTag(TAG_MAP);
+        citiesFragment = (CitiesFragment) getSupportFragmentManager().findFragmentByTag(TAG_CITIES);
+        settingsFragment = (SettingsFragment) getSupportFragmentManager().findFragmentByTag(TAG_SETTINGS);
+
+        if (nowFragment == null) nowFragment = new NowFragment();
+        if (forecastFragment == null) forecastFragment = new ForecastFragment();
+        if (mapFragment == null) mapFragment = new MapFragment();
+        if (citiesFragment == null) citiesFragment = new CitiesFragment();
+        if (settingsFragment == null) settingsFragment = new SettingsFragment();
+    }
+
+    private void showSelectedFragment(int id) {
+        if (id == R.id.nav_now) {
+            showFragment(nowFragment, TAG_NOW);
+        } else if (id == R.id.nav_forecast) {
+            showFragment(forecastFragment, TAG_FORECAST);
+            if (lastGeo != null) {
+                forecastFragment.setGeoLocation(lastGeo);
+            } else {
+                forecastFragment.showPlaceholder();
+            }
+        } else if (id == R.id.nav_map) {
+            showFragment(mapFragment, TAG_MAP);
+        } else if (id == R.id.nav_cities) {
+            showFragment(citiesFragment, TAG_CITIES);
+        } else if (id == R.id.nav_settings) {
+            showFragment(settingsFragment, TAG_SETTINGS);
+        }
     }
 
     private void showFragment(@NonNull Fragment fragment, String tag) {
@@ -109,12 +122,16 @@ public class MainActivity extends AppCompatActivity {
         locationHelper.requestLocation(new LocationHelper.Callback() {
             @Override
             public void onLocationReady(double lat, double lon) {
-                lastGeo = new GeoLocation();
-                lastGeo.lat = lat;
-                lastGeo.lon = lon;
-                lastGeo.name = "GPS";
-                nowFragment.loadWeatherByCoords(lat, lon);
+                runOnUiThread(() -> {
+                    lastGeo = new GeoLocation();
+                    lastGeo.lat = lat;
+                    lastGeo.lon = lon;
+                    lastGeo.name = "GPS";
+                    nowFragment.loadWeatherByCoords(lat, lon);
+                    forecastFragment.setGeoLocation(lastGeo);
+                });
             }
+
             @Override
             public void onError(String message) {
                 runOnUiThread(() -> Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show());
@@ -123,6 +140,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void openDayDetail(DailyData day) {
+        selectedNavItemId = R.id.nav_forecast;
         getSupportFragmentManager()
                 .beginTransaction()
                 .replace(R.id.fragment_container, DayDetailFragment.newInstance(day))
@@ -130,13 +148,18 @@ public class MainActivity extends AppCompatActivity {
                 .commit();
     }
 
+    public void onWeatherLocationLoaded(GeoLocation geo) {
+        if (geo == null) return;
+        lastGeo = geo;
+        forecastFragment.setGeoLocation(geo);
+    }
+
     @Override
     protected void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
+        outState.putInt(STATE_SELECTED_NAV, selectedNavItemId);
         if (lastGeo != null) {
-            outState.putDouble("last_lat", lastGeo.lat);
-            outState.putDouble("last_lon", lastGeo.lon);
-            outState.putString("last_name", lastGeo.name);
+            outState.putSerializable(STATE_LAST_GEO, lastGeo);
         }
     }
 

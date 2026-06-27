@@ -1,12 +1,15 @@
 package com.home.myweather;
 
 import android.os.Bundle;
+import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.constraintlayout.widget.ConstraintLayout;
@@ -17,12 +20,14 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
+import java.util.Locale;
 
-/**
- * Фрагмент «Сейчас» — главный экран.
- * Показывает текущую погоду, почасовой прогноз (3-часовой) и краткий 5-дневный.
- */
 public class NowFragment extends Fragment {
+
+    private static final String STATE_WEATHER = "last_weather";
+    private static final String STATE_GEO = "last_geo";
+    private static final String STATE_HOURLY = "hourly";
+    private static final String STATE_BG_RES = "bg_res";
 
     private TextView tvCity, tvTemp, tvFeels, tvDesc, tvWind, tvPressure, tvHumidity;
     private TextView tvComfort;
@@ -34,6 +39,9 @@ public class NowFragment extends Fragment {
     private WeatherRepository weatherRepository;
     private WeatherResponse lastWeather;
     private GeoLocation lastGeo;
+    private ArrayList<ForecastItem> cachedHourly = new ArrayList<>();
+    private double cachedHourlyLat = Double.NaN;
+    private double cachedHourlyLon = Double.NaN;
     private int selectedBgRes = R.drawable.foto4;
 
     @Nullable
@@ -61,19 +69,25 @@ public class NowFragment extends Fragment {
 
         weatherRepository = new WeatherRepository();
 
-        // Загрузка сохранённого состояния
         if (savedInstanceState != null) {
-            lastWeather = (WeatherResponse) savedInstanceState.getSerializable("last_weather");
-            selectedBgRes = savedInstanceState.getInt("bg_res", R.drawable.foto4);
-            if (lastWeather != null) showWeather(lastWeather);
+            lastWeather = (WeatherResponse) savedInstanceState.getSerializable(STATE_WEATHER);
+            lastGeo = (GeoLocation) savedInstanceState.getSerializable(STATE_GEO);
+            ArrayList<ForecastItem> restoredHourly =
+                    (ArrayList<ForecastItem>) savedInstanceState.getSerializable(STATE_HOURLY);
+            if (restoredHourly != null) cachedHourly = restoredHourly;
+            selectedBgRes = savedInstanceState.getInt(STATE_BG_RES, R.drawable.foto4);
+            if (lastGeo != null && !cachedHourly.isEmpty()) {
+                cachedHourlyLat = lastGeo.lat;
+                cachedHourlyLon = lastGeo.lon;
+            }
         }
+
+        if (lastWeather != null) showWeather(lastWeather);
+        hourlyAdapter.setItems(cachedHourly);
         mBackground.setBackgroundResource(selectedBgRes);
 
-        // Кнопки поиска и геолокации
         v.findViewById(R.id.main_btn).setOnClickListener(vv -> onSearchClick());
         v.findViewById(R.id.geo_btn).setOnClickListener(vv -> onGeoClick());
-
-        // Кнопки фона
         v.findViewById(R.id.btn1).setOnClickListener(vv -> setBackground(R.drawable.foto1));
         v.findViewById(R.id.btn2).setOnClickListener(vv -> setBackground(R.drawable.foto2));
         v.findViewById(R.id.btn3).setOnClickListener(vv -> setBackground(R.drawable.foto3));
@@ -92,8 +106,18 @@ public class NowFragment extends Fragment {
             Toast.makeText(requireContext(), "Введите название города", Toast.LENGTH_SHORT).show();
             return;
         }
+        hideKeyboard();
         showLoading();
         weatherRepository.fetchWeather(city, null, weatherCallback);
+    }
+
+    private void hideKeyboard() {
+        cityField.clearFocus();
+        InputMethodManager imm =
+                (InputMethodManager) requireContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm != null && getView() != null) {
+            imm.hideSoftInputFromWindow(getView().getWindowToken(), 0);
+        }
     }
 
     private void onGeoClick() {
@@ -115,6 +139,9 @@ public class NowFragment extends Fragment {
         tvHumidity.setText("—");
         tvDesc.setText("—");
         tvComfort.setText("—");
+        cachedHourly.clear();
+        cachedHourlyLat = Double.NaN;
+        cachedHourlyLon = Double.NaN;
         hourlyAdapter.setItems(null);
     }
 
@@ -122,13 +149,13 @@ public class NowFragment extends Fragment {
         if (w == null || w.getMain() == null) return;
 
         tvCity.setText(w.getName() != null ? w.getName() : "—");
-        tvTemp.setText(String.format(java.util.Locale.getDefault(), "%.1f°C", w.getMain().getTemp()));
-        tvFeels.setText(String.format(java.util.Locale.getDefault(), "Ощущается: %.1f°C", w.getMain().getFeelsLike()));
-        tvPressure.setText(String.format(java.util.Locale.getDefault(), "Давление: %d гПа", w.getMain().getPressure()));
-        tvHumidity.setText(String.format(java.util.Locale.getDefault(), "Влажность: %d%%", w.getMain().getHumidity()));
+        tvTemp.setText(String.format(Locale.getDefault(), "%.1f°C", w.getMain().getTemp()));
+        tvFeels.setText(String.format(Locale.getDefault(), "Ощущается: %.1f°C", w.getMain().getFeelsLike()));
+        tvPressure.setText(String.format(Locale.getDefault(), "Давление: %d гПа", w.getMain().getPressure()));
+        tvHumidity.setText(String.format(Locale.getDefault(), "Влажность: %d%%", w.getMain().getHumidity()));
 
         if (w.getWind() != null) {
-            tvWind.setText(String.format(java.util.Locale.getDefault(), "Ветер: %.1f м/с", w.getWind().getSpeed()));
+            tvWind.setText(String.format(Locale.getDefault(), "Ветер: %.1f м/с", w.getWind().getSpeed()));
         } else {
             tvWind.setText("Ветер: нет данных");
         }
@@ -140,17 +167,15 @@ public class NowFragment extends Fragment {
             tvDesc.setText("—");
         }
 
-        // Индекс комфорта
         double temp = w.getMain().getTemp();
         double windSpeed = w.getWind() != null ? w.getWind().getSpeed() : 0;
         int humidity = w.getMain().getHumidity();
         int pressure = w.getMain().getPressure();
-        double pop = 0;
+        double pop = cachedHourly.isEmpty() ? 0 : cachedHourly.get(0).pop;
         int weatherId = (wc != null && wc.length > 0 && wc[0] != null) ? wc[0].getId() : 800;
 
         tvComfort.setText(ComfortIndex.getComfortMessage(temp, windSpeed, humidity, pressure, pop));
 
-        // Фон по погоде
         Calendar cal = Calendar.getInstance();
         int hour = cal.get(Calendar.HOUR_OF_DAY);
         boolean isDay = hour >= 6 && hour < 20;
@@ -159,24 +184,50 @@ public class NowFragment extends Fragment {
     }
 
     private void loadForecast(double lat, double lon) {
+        if (Double.compare(cachedHourlyLat, lat) == 0
+                && Double.compare(cachedHourlyLon, lon) == 0
+                && !cachedHourly.isEmpty()) {
+            hourlyAdapter.setItems(cachedHourly);
+            return;
+        }
+
         weatherRepository.fetchForecast(lat, lon, new WeatherRepository.ForecastCallback() {
             @Override
             public void onSuccess(ForecastResponse forecast) {
                 if (isAdded() && getActivity() != null && !getActivity().isDestroyed()) {
                     requireActivity().runOnUiThread(() -> {
-                        // Берём первые 8 записей (24 часа с шагом 3)
-                        List<ForecastItem> hourly = new ArrayList<>();
-                        int count = Math.min(forecast.list.size(), 8);
-                        for (int i = 0; i < count; i++) hourly.add(forecast.list.get(i));
-                        hourlyAdapter.setItems(hourly);
+                        cachedHourly = new ArrayList<>();
+                        List<ForecastItem> source = forecast != null ? forecast.list : null;
+                        int count = source != null ? Math.min(source.size(), 8) : 0;
+                        for (int i = 0; i < count; i++) cachedHourly.add(source.get(i));
+                        cachedHourlyLat = lat;
+                        cachedHourlyLon = lon;
+                        hourlyAdapter.setItems(cachedHourly);
+                        if (lastWeather != null) showWeather(lastWeather);
                     });
                 }
             }
+
             @Override
             public void onError(String message) {
-                // Тихо игнорируем ошибку прогноза — текущая погода уже показана
+                // The current weather is still useful even if the hourly forecast fails.
             }
         });
+    }
+
+    private void notifyActivityAboutGeo(GeoLocation geo) {
+        if (geo != null && getActivity() instanceof MainActivity) {
+            ((MainActivity) getActivity()).onWeatherLocationLoaded(geo);
+        }
+    }
+
+    private GeoLocation geoFromWeather(WeatherResponse w) {
+        if (w == null || w.getCoord() == null) return null;
+        GeoLocation geo = new GeoLocation();
+        geo.lat = w.getCoord().getLat();
+        geo.lon = w.getCoord().getLon();
+        geo.name = w.getName();
+        return geo;
     }
 
     private final WeatherRepository.WeatherCallback weatherCallback =
@@ -186,17 +237,17 @@ public class NowFragment extends Fragment {
                     if (isAdded() && getActivity() != null && !getActivity().isDestroyed()) {
                         requireActivity().runOnUiThread(() -> {
                             lastWeather = w;
-                            lastGeo = geo;
+                            GeoLocation resolvedGeo = geo != null ? geo : geoFromWeather(w);
+                            lastGeo = resolvedGeo;
                             showWeather(w);
-                            // Загружаем прогноз по тем же координатам
-                            if (geo != null) {
-                                loadForecast(geo.lat, geo.lon);
-                            } else if (w.getCoord() != null) {
-                                loadForecast(w.getCoord().getLat(), w.getCoord().getLon());
+                            notifyActivityAboutGeo(resolvedGeo);
+                            if (resolvedGeo != null) {
+                                loadForecast(resolvedGeo.lat, resolvedGeo.lon);
                             }
                         });
                     }
                 }
+
                 @Override
                 public void onError(String message) {
                     if (isAdded() && getActivity() != null && !getActivity().isDestroyed()) {
@@ -211,8 +262,10 @@ public class NowFragment extends Fragment {
     @Override
     public void onSaveInstanceState(@NonNull Bundle out) {
         super.onSaveInstanceState(out);
-        if (lastWeather != null) out.putSerializable("last_weather", lastWeather);
-        out.putInt("bg_res", selectedBgRes);
+        if (lastWeather != null) out.putSerializable(STATE_WEATHER, lastWeather);
+        if (lastGeo != null) out.putSerializable(STATE_GEO, lastGeo);
+        out.putSerializable(STATE_HOURLY, cachedHourly);
+        out.putInt(STATE_BG_RES, selectedBgRes);
     }
 
     @Override
