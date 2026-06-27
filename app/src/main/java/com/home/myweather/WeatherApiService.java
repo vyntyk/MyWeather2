@@ -37,4 +37,18 @@ public interface WeatherApiService {
             @Query("units") String units,   // "metric" | "imperial" | "standard"
             @Query("lang")  String lang     // "ru", "en", …
     );
+
+    /**
+     * Прогноз на 5 дней с шагом 3 часа (Forecast API 2.5).
+     * GET https://api.openweathermap.org/data/2.5/forecast
+     *   ?lat={lat}&lon={lon}&appid={key}&units=metric&lang=ru
+     */
+    @GET("data/2.5/forecast")
+    Call<ForecastResponse> get5DayForecast(
+            @Query("lat")   double lat,
+            @Query("lon")   double lon,
+            @Query("appid") String apiKey,
+            @Query("units") String units,
+            @Query("lang")  String lang
+    );
 }

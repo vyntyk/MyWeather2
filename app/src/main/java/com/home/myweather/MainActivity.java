@@ -1,124 +1,167 @@
 package com.home.myweather;
 
-import android.content.Context;
-import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
-import android.view.inputmethod.InputMethodManager;
-import android.widget.EditText;
-import android.widget.TextView;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.widget.Toast;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.fragment.app.Fragment;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 
+/**
+ * Главная Activity с BottomNavigationView и 5 фрагментами.
+ * Сохраняет lastGeo при пересоздании и передаёт между фрагментами.
+ */
 public class MainActivity extends AppCompatActivity {
 
-    private UiController ui;
+    private static final String TAG_NOW = "now";
+    private static final String TAG_FORECAST = "forecast";
+    private static final String TAG_MAP = "map";
+    private static final String TAG_CITIES = "cities";
+    private static final String TAG_SETTINGS = "settings";
+
+    private NowFragment nowFragment;
+    private ForecastFragment forecastFragment;
+    private MapFragment mapFragment;
+    private CitiesFragment citiesFragment;
+    private SettingsFragment settingsFragment;
+
     private LocationHelper locationHelper;
-    private WeatherRepository weatherRepository;
-    private WeatherResponse lastWeather;
-    private ConstraintLayout mBackground;
-    private EditText userField;
-    private int selectedBgRes = R.drawable.foto4;
+    private GeoLocation lastGeo;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        mBackground = findViewById(R.id.background);
-        userField   = findViewById(R.id.user_field);
+        locationHelper = new LocationHelper(this);
 
-        ui = new UiController(this,
-                findViewById(R.id.resultat),  findViewById(R.id.resultat2),
-                findViewById(R.id.resultat3), findViewById(R.id.resultat4),
-                findViewById(R.id.resultat5), userField);
+        BottomNavigationView bottomNav = findViewById(R.id.bottom_nav);
 
-        ui.hideSystemUI();
+        if (savedInstanceState == null) {
+            nowFragment = new NowFragment();
+            forecastFragment = new ForecastFragment();
+            mapFragment = new MapFragment();
+            citiesFragment = new CitiesFragment();
+            settingsFragment = new SettingsFragment();
 
-        weatherRepository = new WeatherRepository();
-        locationHelper    = new LocationHelper(this);
+            showFragment(nowFragment, TAG_NOW);
+            bottomNav.setSelectedItemId(R.id.nav_now);
+        } else {
+            // Восстанавливаем фрагменты из FragmentManager
+            nowFragment = (NowFragment) getSupportFragmentManager().findFragmentByTag(TAG_NOW);
+            forecastFragment = (ForecastFragment) getSupportFragmentManager().findFragmentByTag(TAG_FORECAST);
+            mapFragment = (MapFragment) getSupportFragmentManager().findFragmentByTag(TAG_MAP);
+            citiesFragment = (CitiesFragment) getSupportFragmentManager().findFragmentByTag(TAG_CITIES);
+            settingsFragment = (SettingsFragment) getSupportFragmentManager().findFragmentByTag(TAG_SETTINGS);
 
-        findViewById(R.id.main_btn).setOnClickListener(v -> onSearchClick(v));
-        findViewById(R.id.geo_btn).setOnClickListener(v -> onGeoClick());
-
-        if (savedInstanceState != null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                lastWeather = savedInstanceState.getSerializable("last_weather", WeatherResponse.class);
-            } else {
-                lastWeather = (WeatherResponse) savedInstanceState.getSerializable("last_weather");
+            // Восстанавливаем координаты
+            double lat = savedInstanceState.getDouble("last_lat", Double.NaN);
+            double lon = savedInstanceState.getDouble("last_lon", Double.NaN);
+            String name = savedInstanceState.getString("last_name", null);
+            if (!Double.isNaN(lat) && !Double.isNaN(lon)) {
+                lastGeo = new GeoLocation();
+                lastGeo.lat = lat;
+                lastGeo.lon = lon;
+                lastGeo.name = name;
             }
-            selectedBgRes = savedInstanceState.getInt("bg_res", R.drawable.foto4);
-            if (lastWeather != null) ui.showWeather(lastWeather);
         }
-        mBackground.setBackgroundResource(selectedBgRes);
+
+        bottomNav.setOnItemSelectedListener(item -> {
+            int id = item.getItemId();
+            if (id == R.id.nav_now) {
+                showFragment(nowFragment, TAG_NOW);
+                return true;
+            } else if (id == R.id.nav_forecast) {
+                showFragment(forecastFragment, TAG_FORECAST);
+                if (lastGeo != null) {
+                    forecastFragment.setGeoLocation(lastGeo);
+                } else {
+                    forecastFragment.showPlaceholder();
+                }
+                return true;
+            } else if (id == R.id.nav_map) {
+                showFragment(mapFragment, TAG_MAP);
+                return true;
+            } else if (id == R.id.nav_cities) {
+                showFragment(citiesFragment, TAG_CITIES);
+                return true;
+            } else if (id == R.id.nav_settings) {
+                showFragment(settingsFragment, TAG_SETTINGS);
+                return true;
+            }
+            return false;
+        });
+
+        hideSystemUI();
     }
 
-    private void onSearchClick(View v) {
-        InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-        if (imm != null) imm.hideSoftInputFromWindow(v.getWindowToken(), 0);
-
-        String city = userField.getText().toString().trim();
-        if (city.isEmpty()) {
-            Toast.makeText(this, "Введите название города", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        ui.showLoading("Загрузка...");
-        weatherRepository.fetchWeather(city, null, weatherCallback);
+    private void showFragment(@NonNull Fragment fragment, String tag) {
+        getSupportFragmentManager()
+                .beginTransaction()
+                .replace(R.id.fragment_container, fragment, tag)
+                .commit();
     }
 
-    private void onGeoClick() {
-        ui.showLoading("Определяем местоположение...");
+    public void requestGeoLocation() {
         locationHelper.requestLocation(new LocationHelper.Callback() {
-            @Override public void onLocationReady(double lat, double lon) {
-                weatherRepository.fetchWeatherByCoords(lat, lon, weatherCallback);
+            @Override
+            public void onLocationReady(double lat, double lon) {
+                lastGeo = new GeoLocation();
+                lastGeo.lat = lat;
+                lastGeo.lon = lon;
+                lastGeo.name = "GPS";
+                nowFragment.loadWeatherByCoords(lat, lon);
             }
-            @Override public void onError(String message) {
-                runOnUiThread(() -> ui.showError(message));
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show());
             }
         });
     }
 
-    private final WeatherRepository.WeatherCallback weatherCallback =
-            new WeatherRepository.WeatherCallback() {
-                @Override public void onSuccess(WeatherResponse w, GeoLocation geo) {
-                    runOnUiThread(() -> {
-                        if (isDestroyed() || isFinishing()) return;
-                        lastWeather = w;
-                        ui.showWeather(w);
-                    });
-                }
-                @Override public void onError(String message) {
-                    runOnUiThread(() -> {
-                        if (isDestroyed() || isFinishing()) return;
-                        ui.showError("Нет соединения с интернетом");
-                        Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show();
-                    });
-                }
-            };
-
-    public void BG(View view) {
-        int id = view.getId();
-        if      (id == R.id.btn1) selectedBgRes = R.drawable.foto1;
-        else if (id == R.id.btn2) selectedBgRes = R.drawable.foto2;
-        else if (id == R.id.btn3) selectedBgRes = R.drawable.foto3;
-        else return;
-        mBackground.setBackgroundResource(selectedBgRes);
+    public void openDayDetail(DailyData day) {
+        getSupportFragmentManager()
+                .beginTransaction()
+                .replace(R.id.fragment_container, DayDetailFragment.newInstance(day))
+                .addToBackStack("day_detail")
+                .commit();
     }
 
-    @Override public void onWindowFocusChanged(boolean hasFocus) {
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (lastGeo != null) {
+            outState.putDouble("last_lat", lastGeo.lat);
+            outState.putDouble("last_lon", lastGeo.lon);
+            outState.putString("last_name", lastGeo.name);
+        }
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) ui.hideSystemUI();
+        if (hasFocus) hideSystemUI();
     }
 
-    @Override protected void onSaveInstanceState(Bundle out) {
-        super.onSaveInstanceState(out);
-        if (lastWeather != null) out.putSerializable("last_weather", lastWeather);
-        out.putInt("bg_res", selectedBgRes);
-    }
-
-    @Override protected void onDestroy() {
-        super.onDestroy();
-        if (weatherRepository != null) weatherRepository.cancelPendingRequests();
+    private void hideSystemUI() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            WindowInsetsController c = getWindow().getInsetsController();
+            if (c != null) {
+                c.hide(WindowInsets.Type.systemBars());
+                c.setSystemBarsBehavior(
+                        WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            }
+        } else {
+            getWindow().getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                            | View.SYSTEM_UI_FLAG_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+        }
     }
 }

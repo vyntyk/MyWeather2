@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_now"
+        android:icon="@android:drawable/ic_menu_compass"
+        android:title="Сейчас" />
+    <item
+        android:id="@+id/nav_forecast"
+        android:icon="@android:drawable/ic_menu_week"
+        android:title="5 дней" />
+    <item
+        android:id="@+id/nav_map"
+        android:icon="@android:drawable/ic_menu_mapmode"
+        android:title="Карта" />
+    <item
+        android:id="@+id/nav_cities"
+        android:icon="@android:drawable/ic_menu_mylocation"
+        android:title="Города" />
+    <item
+        android:id="@+id/nav_settings"
+        android:icon="@android:drawable/ic_menu_preferences"
+        android:title="Настройки" />
+</menu>

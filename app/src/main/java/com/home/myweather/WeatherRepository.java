@@ -28,6 +28,7 @@ public class WeatherRepository {
     private final GeocodingRepository  geocoding   = new GeocodingRepository();
     private final Object               lock        = new Object();
     private       Call<WeatherResponse> weatherCall;
+    private       Call<ForecastResponse> forecastCall;
     private       long                 requestId   = 0L;
 
     // ── По названию города ────────────────────────────────────────────────
@@ -56,7 +57,34 @@ public class WeatherRepository {
         fetchCurrentWeather(geo, callback, rid);
     }
 
-    // ── Внутренний запрос погоды ──────────────────────────────────────────
+    // ── Прогноз на 5 дней ─────────────────────────────────────────────────
+    public void fetchForecast(double lat, double lon, ForecastCallback callback) {
+        if (callback == null) throw new IllegalArgumentException("callback must not be null");
+        final long rid;
+        synchronized (lock) { cancelLocked(); rid = ++requestId; }
+
+        final Call<ForecastResponse> call = apiService.get5DayForecast(lat, lon, apiKey(), UNITS, LANG);
+        synchronized (lock) { forecastCall = call; }
+
+        call.enqueue(new Callback<ForecastResponse>() {
+            @Override public void onResponse(Call<ForecastResponse> c, Response<ForecastResponse> r) {
+                if (c.isCanceled() || rid != requestId) return;
+                ForecastResponse body = r.body();
+                if (!r.isSuccessful() || body == null || body.list == null || body.list.isEmpty()) {
+                    callback.onError("Ошибка прогноза (код " + r.code() + ")"); return;
+                }
+                callback.onSuccess(body);
+            }
+            @Override public void onFailure(Call<ForecastResponse> c, Throwable t) {
+                if (!c.isCanceled() && rid == requestId) callback.onError(networkError(t));
+            }
+        });
+    }
+
+    public interface ForecastCallback {
+        void onSuccess(ForecastResponse forecast);
+        void onError(String message);
+    }
     private void fetchCurrentWeather(GeoLocation geo, WeatherCallback callback, long rid) {
         final Call<WeatherResponse> call;
         synchronized (lock) {
@@ -90,6 +118,7 @@ public class WeatherRepository {
     private void cancelLocked() {
         geocoding.cancel();
         if (weatherCall != null && !weatherCall.isCanceled()) weatherCall.cancel();
+        if (forecastCall != null && !forecastCall.isCanceled()) forecastCall.cancel();
     }
 
     private boolean validate(String city, WeatherCallback cb) {
