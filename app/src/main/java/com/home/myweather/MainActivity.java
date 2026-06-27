@@ -12,6 +12,15 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.home.myweather.data.model.DailyData;
+import com.home.myweather.ui.fragments.NowFragment;
+import com.home.myweather.ui.fragments.CitiesFragment;
+import com.home.myweather.helpers.LocationHelper;
+import com.home.myweather.ui.fragments.ForecastFragment;
+import com.home.myweather.data.model.GeoLocation;
+import com.home.myweather.ui.fragments.DayDetailFragment;
+import com.home.myweather.ui.fragments.MapFragment;
+import com.home.myweather.ui.fragments.SettingsFragment;
 
 public class MainActivity extends AppCompatActivity {
 
