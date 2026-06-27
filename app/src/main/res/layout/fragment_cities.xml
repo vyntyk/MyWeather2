@@ -11,7 +11,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="⭐ Избранные города"
+        android:text="@string/favorite_cities_title"
         android:textAlignment="center"
         android:textColor="@color/black"
         android:textSize="24sp"
@@ -58,7 +58,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Ваши города:"
+        android:text="@string/your_cities"
         android:textColor="@color/black"
         android:textSize="16sp"
         android:textStyle="bold"
@@ -77,7 +77,7 @@
         android:id="@+id/tv_empty_cities"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Нет сохранённых городов.\nДобавьте город для быстрого доступа!"
+        android:text="@string/empty_cities"
         android:textAlignment="center"
         android:textColor="@android:color/darker_gray"
         android:textSize="16sp"

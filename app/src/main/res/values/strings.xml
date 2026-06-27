@@ -9,4 +9,13 @@
     <string name="weather">Weather</string>
     <string name="input_city">Find out the weather</string>
     <string name="weather_icon_description">Weather icon</string>
+    <string name="app_description">Данное приложение было написано под влиянием плохой погоды и навеянных воспоминаний.
+    Спасибо за то, что пользуетесь им.</string>
+    <string name="favorite_cities_title">⭐ Избранные города</string>
+    <string name="your_cities">Ваши города:</string>
+    <string name="empty_cities">Нет сохранённых городов.\nДобавьте город для быстрого доступа!</string>
+    <string name="my_weather">Моя Погода</string>
+    <string name="forecast_24h">Прогноз на 24 часа</string>
+    <string name="forecast_5days">Прогноз на 5 дней</string>
+    <string name="back_button">← Назад</string>
 </resources>

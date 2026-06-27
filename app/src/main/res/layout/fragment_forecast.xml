@@ -18,7 +18,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:fontFamily="sans-serif"
-            android:text="Прогноз на 5 дней"
+            android:text="@string/forecast_5days"
             android:textAlignment="center"
             android:textColor="@color/black"
             android:textSize="24sp"

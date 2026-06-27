@@ -9,6 +9,8 @@
 
     <TextView
         android:id="@+id/tv_settings_placeholder"
+        android:text="Данное приложение было написано под влиянием плохой погоды и навеянных
+воспоминаний."
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:fontFamily="sans-serif"
