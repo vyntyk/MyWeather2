@@ -12,6 +12,7 @@ android {
     namespace 'com.home.myweather'
     compileSdk 36
 
+
     defaultConfig {
         applicationId "com.home.myweather"
         minSdk 25
