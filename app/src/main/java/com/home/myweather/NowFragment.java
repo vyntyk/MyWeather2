@@ -131,6 +131,11 @@ public class NowFragment extends Fragment {
         weatherRepository.fetchWeatherByCoords(lat, lon, weatherCallback);
     }
 
+    public void loadWeatherByCity(String cityName) {
+        showLoading();
+        weatherRepository.fetchWeather(cityName, null, weatherCallback);
+    }
+
     private void showLoading() {
         tvTemp.setText("Загрузка...");
         tvFeels.setText("—");

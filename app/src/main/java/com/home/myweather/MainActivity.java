@@ -148,6 +148,14 @@ public class MainActivity extends AppCompatActivity {
                 .commit();
     }
 
+    public void loadWeatherFromFavoriteCity(String cityName) {
+        if (nowFragment != null) {
+            nowFragment.loadWeatherByCity(cityName);
+        }
+        BottomNavigationView bottomNav = findViewById(R.id.bottom_nav);
+        bottomNav.setSelectedItemId(R.id.nav_now);
+    }
+
     public void onWeatherLocationLoaded(GeoLocation geo) {
         if (geo == null) return;
         lastGeo = geo;

@@ -17,7 +17,7 @@ GET http://api.openweathermap.org/geo/1.0/direct
     &appid={API_KEY}
 ```
 
-**Пример:** `?q=Kyiv,UA&limit=1&appid=...`
+**Пример:** `?q=Moscow,RU&limit=1&appid=...`
 
 **Ответ:**
 ```json

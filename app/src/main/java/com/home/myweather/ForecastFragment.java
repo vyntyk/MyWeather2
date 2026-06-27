@@ -30,7 +30,9 @@ public class ForecastFragment extends Fragment {
     private DailyAdapter dailyAdapter;
     private WeatherRepository weatherRepository;
     private GeoLocation currentGeo;
+    private GeoLocation pendingGeo;
     private ArrayList<DailyData> cachedDays = new ArrayList<>();
+    private boolean isViewCreated = false;
 
     @Nullable
     @Override
@@ -68,11 +70,23 @@ public class ForecastFragment extends Fragment {
             showPlaceholder();
         }
 
+        isViewCreated = true;
+        
+        if (pendingGeo != null) {
+            setGeoLocation(pendingGeo);
+            pendingGeo = null;
+        }
+
         return v;
     }
 
     public void setGeoLocation(GeoLocation geo) {
         if (geo == null) return;
+
+        if (!isViewCreated) {
+            pendingGeo = geo;
+            return;
+        }
 
         boolean sameGeo = currentGeo != null
                 && Double.compare(currentGeo.lat, geo.lat) == 0
@@ -81,11 +95,6 @@ public class ForecastFragment extends Fragment {
         updateCityTitle();
 
         if (rvDaily == null || tvPlaceholder == null || dailyAdapter == null) return;
-
-        if (sameGeo && !cachedDays.isEmpty()) {
-            showCachedDays();
-            return;
-        }
 
         cachedDays.clear();
         showList();
@@ -188,6 +197,7 @@ public class ForecastFragment extends Fragment {
     @Override
     public void onDestroyView() {
         super.onDestroyView();
+        isViewCreated = false;
         rvDaily = null;
         tvPlaceholder = null;
         tvForecastCity = null;
