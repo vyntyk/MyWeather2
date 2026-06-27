@@ -3,20 +3,21 @@ package com.home.myweather;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
+
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-/**
- * Адаптер для прогноза по дням (5 дней).
- * Вертикальный RecyclerView.
- */
 public class DailyAdapter extends RecyclerView.Adapter<DailyAdapter.ViewHolder> {
+
+    private static final double HPA_TO_MMHG = 0.750062;
 
     public interface OnDayClickListener {
         void onDayClick(DailyData day);
@@ -26,7 +27,9 @@ public class DailyAdapter extends RecyclerView.Adapter<DailyAdapter.ViewHolder> 
     private final SimpleDateFormat dayFormat = new SimpleDateFormat("EEEE, d MMM", Locale.getDefault());
     private OnDayClickListener listener;
 
-    public void setOnDayClickListener(OnDayClickListener l) { this.listener = l; }
+    public void setOnDayClickListener(OnDayClickListener l) {
+        this.listener = l;
+    }
 
     public void setDays(List<DailyData> newDays) {
         days.clear();
@@ -48,28 +51,134 @@ public class DailyAdapter extends RecyclerView.Adapter<DailyAdapter.ViewHolder> 
 
         h.tvDay.setText(dayFormat.format(new Date(day.dateMillis)));
         h.tvTempRange.setText(String.format(Locale.getDefault(), "%.0f° / %.0f°", day.tempMin, day.tempMax));
+        h.tvDesc.setText(day.description != null ? day.description : "—");
+        h.tvPop.setText(String.format(Locale.getDefault(), "Осадки %.0f%%", day.pop * 100));
+        h.tvWind.setText(String.format(Locale.getDefault(), "Скорость ветра: %.1f м/с", getMaxWindSpeed(day)));
+        h.tvPressure.setText(String.format(Locale.getDefault(), "Давление: %.0f мм рт. ст.", getAveragePressureMmHg(day)));
+        h.tvVisibility.setText(String.format(Locale.getDefault(), "Видимость: %.1f км", getAverageVisibilityKm(day)));
+        h.tvHumidity.setText(String.format(Locale.getDefault(), "Влажность: %.0f%%", getAverageHumidity(day)));
 
-        String desc = day.description != null ? day.description : "—";
-        h.tvDesc.setText(desc);
-
-        h.tvPop.setText(String.format(Locale.getDefault(), "💧 %.0f%%", day.pop * 100));
+        h.ivWeather.setImageResource(getWeatherIconRes(getWeatherIcon(day)));
 
         h.itemView.setOnClickListener(v -> {
             if (listener != null) listener.onDayClick(day);
         });
     }
 
+    private String getWeatherIcon(DailyData day) {
+        if (day.items == null || day.items.isEmpty()) return null;
+        for (ForecastItem item : day.items) {
+            if (item.weather != null
+                    && item.weather.length > 0
+                    && item.weather[0] != null
+                    && item.weather[0].icon != null) {
+                return item.weather[0].icon;
+            }
+        }
+        return null;
+    }
+
+    private int getWeatherIconRes(String iconCode) {
+        if (iconCode == null) return R.drawable.ow_01d;
+        switch (iconCode) {
+            case "01d": return R.drawable.ow_01d;
+            case "01n": return R.drawable.ow_01n;
+            case "02d": return R.drawable.ow_02d;
+            case "02n": return R.drawable.ow_02n;
+            case "03d": return R.drawable.ow_03d;
+            case "03n": return R.drawable.ow_03n;
+            case "04d": return R.drawable.ow_04d;
+            case "04n": return R.drawable.ow_04n;
+            case "09d": return R.drawable.ow_09d;
+            case "09n": return R.drawable.ow_09n;
+            case "10d": return R.drawable.ow_10d;
+            case "10n": return R.drawable.ow_10n;
+            case "11d": return R.drawable.ow_11d;
+            case "11n": return R.drawable.ow_11n;
+            case "13d": return R.drawable.ow_13d;
+            case "13n": return R.drawable.ow_13n;
+            case "50d": return R.drawable.ow_50d;
+            case "50n": return R.drawable.ow_50n;
+            default: return R.drawable.ow_01d;
+        }
+    }
+
+    private double getMaxWindSpeed(DailyData day) {
+        double maxWind = 0;
+        if (day.items == null) return maxWind;
+        for (ForecastItem item : day.items) {
+            if (item.wind != null) {
+                maxWind = Math.max(maxWind, item.wind.speed);
+            }
+        }
+        return maxWind;
+    }
+
+    private double getAveragePressureMmHg(DailyData day) {
+        int count = 0;
+        int pressureSum = 0;
+        if (day.items != null) {
+            for (ForecastItem item : day.items) {
+                if (item.main != null && item.main.pressure > 0) {
+                    pressureSum += item.main.pressure;
+                    count++;
+                }
+            }
+        }
+        if (count == 0) return 0;
+        return (pressureSum / (double) count) * HPA_TO_MMHG;
+    }
+
+    private double getAverageVisibilityKm(DailyData day) {
+        int count = 0;
+        int visibilitySum = 0;
+        if (day.items != null) {
+            for (ForecastItem item : day.items) {
+                if (item.visibility > 0) {
+                    visibilitySum += item.visibility;
+                    count++;
+                }
+            }
+        }
+        if (count == 0) return 0;
+        return (visibilitySum / (double) count) / 1000.0;
+    }
+
+    private double getAverageHumidity(DailyData day) {
+        int count = 0;
+        int humiditySum = 0;
+        if (day.items != null) {
+            for (ForecastItem item : day.items) {
+                if (item.main != null && item.main.humidity >= 0) {
+                    humiditySum += item.main.humidity;
+                    count++;
+                }
+            }
+        }
+        if (count == 0) return 0;
+        return humiditySum / (double) count;
+    }
+
     @Override
-    public int getItemCount() { return days.size(); }
+    public int getItemCount() {
+        return days.size();
+    }
 
     static class ViewHolder extends RecyclerView.ViewHolder {
-        final TextView tvDay, tvTempRange, tvDesc, tvPop;
+        final ImageView ivWeather;
+        final TextView tvDay, tvTempRange, tvDesc, tvPop, tvWind, tvPressure, tvVisibility, tvHumidity;
+
         ViewHolder(View v) {
             super(v);
+            ivWeather = v.findViewById(R.id.iv_weather);
             tvDay = v.findViewById(R.id.tv_day);
             tvTempRange = v.findViewById(R.id.tv_temp_range);
             tvDesc = v.findViewById(R.id.tv_desc);
             tvPop = v.findViewById(R.id.tv_pop);
+            tvWind = v.findViewById(R.id.tv_wind);
+            tvPressure = v.findViewById(R.id.tv_pressure);
+            tvVisibility = v.findViewById(R.id.tv_visibility);
+            tvHumidity = v.findViewById(R.id.tv_humidity);
         }
     }
 }

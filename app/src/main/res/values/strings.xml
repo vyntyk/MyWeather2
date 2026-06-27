@@ -8,4 +8,5 @@
     <string name="bad_input">City name entered incorrectly</string>
     <string name="weather">Weather</string>
     <string name="input_city">Find out the weather</string>
+    <string name="weather_icon_description">Weather icon</string>
 </resources>

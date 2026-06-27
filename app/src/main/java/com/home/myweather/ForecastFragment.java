@@ -26,6 +26,7 @@ public class ForecastFragment extends Fragment {
 
     private RecyclerView rvDaily;
     private TextView tvPlaceholder;
+    private TextView tvForecastCity;
     private DailyAdapter dailyAdapter;
     private WeatherRepository weatherRepository;
     private GeoLocation currentGeo;
@@ -38,6 +39,7 @@ public class ForecastFragment extends Fragment {
         View v = inflater.inflate(R.layout.fragment_forecast, container, false);
         rvDaily = v.findViewById(R.id.rv_daily);
         tvPlaceholder = v.findViewById(R.id.tv_placeholder);
+        tvForecastCity = v.findViewById(R.id.tv_forecast_city);
 
         dailyAdapter = new DailyAdapter();
         dailyAdapter.setOnDayClickListener(day -> {
@@ -58,6 +60,7 @@ public class ForecastFragment extends Fragment {
         }
 
         if (!cachedDays.isEmpty()) {
+            updateCityTitle();
             showCachedDays();
         } else if (currentGeo != null) {
             setGeoLocation(currentGeo);
@@ -75,6 +78,7 @@ public class ForecastFragment extends Fragment {
                 && Double.compare(currentGeo.lat, geo.lat) == 0
                 && Double.compare(currentGeo.lon, geo.lon) == 0;
         currentGeo = geo;
+        updateCityTitle();
 
         if (rvDaily == null || tvPlaceholder == null || dailyAdapter == null) return;
 
@@ -96,8 +100,18 @@ public class ForecastFragment extends Fragment {
     }
 
     private void showCachedDays() {
+        updateCityTitle();
         showList();
         dailyAdapter.setDays(cachedDays);
+    }
+
+    private void updateCityTitle() {
+        if (tvForecastCity == null) return;
+        if (currentGeo != null && currentGeo.name != null && !currentGeo.name.trim().isEmpty()) {
+            tvForecastCity.setText(currentGeo.name);
+        } else {
+            tvForecastCity.setText("");
+        }
     }
 
     private void showList() {
@@ -176,6 +190,7 @@ public class ForecastFragment extends Fragment {
         super.onDestroyView();
         rvDaily = null;
         tvPlaceholder = null;
+        tvForecastCity = null;
         dailyAdapter = null;
     }
 
