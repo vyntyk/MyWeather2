@@ -37,6 +37,7 @@ public class NowFragment extends Fragment {
     private static final String STATE_WEATHER = "last_weather";
     private static final String STATE_GEO = "last_geo";
     private static final String STATE_HOURLY = "hourly";
+    private static final double HPA_TO_MMHG = 0.750062; // Коэффициент пересчета гПа -> мм рт.ст.
 
     private TextView tvWeatherIcon, tvTemp, tvFeels, tvDesc, tvComfort, tvComfortEmoji;
     private TextView tvWindValue, tvPressureValue, tvHumidityValue;
@@ -173,7 +174,12 @@ public class NowFragment extends Fragment {
         } else {
             tvWindValue.setText("—");
         }
-        tvPressureValue.setText(String.valueOf(w.getMain().getPressure()));
+
+        // Пересчет давления из гПа в мм рт.ст.
+        int pressureHpa = w.getMain().getPressure();
+        int pressureMmHg = (int) Math.round(pressureHpa * HPA_TO_MMHG);
+        tvPressureValue.setText(String.valueOf(pressureMmHg));
+
         tvHumidityValue.setText(String.valueOf(w.getMain().getHumidity()));
 
         // Индекс комфорта

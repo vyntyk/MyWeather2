@@ -23,6 +23,7 @@ import com.home.myweather.data.model.ForecastItem;
 public class DayDetailFragment extends Fragment {
 
     private static final String ARG_DAY = "day";
+    private static final double HPA_TO_MMHG = 0.750062; // Коэффициент пересчета гПа -> мм рт.ст.
 
     public static DayDetailFragment newInstance(DailyData day) {
         DayDetailFragment f = new DayDetailFragment();
@@ -62,9 +63,11 @@ public class DayDetailFragment extends Fragment {
                     double temp = item.main != null ? item.main.temp : 0;
                     double wind = item.wind != null ? item.wind.speed : 0;
                     int hum = item.main != null ? item.main.humidity : 0;
-                    int press = item.main != null ? item.main.pressure : 0;
-                    sb.append(String.format(Locale.getDefault(), "   %s — %.0f°, %.1f м/с, %d%%, %d гПа\n",
-                            time, temp, wind, hum, press));
+                    int pressureHpa = item.main != null ? item.main.pressure : 0;
+                    double pressureMmHg = pressureHpa * HPA_TO_MMHG;
+                     // И в форматировании:
+                    sb.append(String.format(Locale.getDefault(), "   %s — %.0f°, %.1f м/с, %d%%, %.1f мм рт.ст.\n",
+                            time, temp, wind, hum, pressureMmHg));
                 }
             }
 
