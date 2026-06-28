@@ -16,7 +16,9 @@
         android:textSize="18sp"
         android:textColor="@color/black"
         android:textStyle="bold"
-        android:paddingStart="16dp" />
+        android:padding="12dp"
+        android:background="@drawable/city_item_border"
+        android:layout_marginEnd="12dp" />
 
     <ImageButton
         android:id="@+id/btn_remove_city"
@@ -26,6 +28,6 @@
         android:contentDescription="Удалить город"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:scaleType="centerInside"
-        android:tint="@color/black" />
+        app:tint="@color/black" />
 
 </LinearLayout>
