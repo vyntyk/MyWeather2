@@ -8,6 +8,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -27,6 +28,7 @@ import com.home.myweather.data.repository.WeatherRepository;
 import com.home.myweather.data.model.WeatherResponse;
 import com.home.myweather.data.model.ForecastResponse;
 import com.home.myweather.utils.ComfortIndex;
+import com.home.myweather.utils.WeatherIcon;
 import com.home.myweather.ui.adapters.HourlyAdapter;
 import com.home.myweather.data.model.GeoLocation;
 import com.home.myweather.data.model.ForecastItem;
@@ -39,7 +41,8 @@ public class NowFragment extends Fragment {
     private static final String STATE_HOURLY = "hourly";
     private static final double HPA_TO_MMHG = 0.750062; // Коэффициент пересчета гПа -> мм рт.ст.
 
-    private TextView tvWeatherIcon, tvTemp, tvFeels, tvDesc, tvComfort, tvComfortEmoji;
+    private ImageView ivWeatherIcon;
+    private TextView tvTemp, tvFeels, tvDesc, tvComfort, tvComfortEmoji;
     private TextView tvWindValue, tvPressureValue, tvHumidityValue;
     private RecyclerView rvHourly;
     private EditText cityField;
@@ -59,7 +62,7 @@ public class NowFragment extends Fragment {
                              @Nullable Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.fragment_now, container, false);
 
-        tvWeatherIcon = v.findViewById(R.id.tv_weather_icon);
+        ivWeatherIcon = v.findViewById(R.id.tv_weather_icon);
         tvTemp = v.findViewById(R.id.tv_temp);
         tvFeels = v.findViewById(R.id.tv_feels);
         tvDesc = v.findViewById(R.id.tv_desc);
@@ -144,7 +147,7 @@ public class NowFragment extends Fragment {
         tvWindValue.setText("—");
         tvPressureValue.setText("—");
         tvHumidityValue.setText("—");
-        tvWeatherIcon.setText("☁️");
+        ivWeatherIcon.setImageResource(R.drawable.ow_01d);
         cachedHourly.clear();
         cachedHourlyLat = Double.NaN;
         cachedHourlyLon = Double.NaN;
@@ -162,10 +165,10 @@ public class NowFragment extends Fragment {
         WeatherResponse.WeatherCondition[] wc = w.getWeather();
         if (wc != null && wc.length > 0 && wc[0] != null) {
             tvDesc.setText(wc[0].getDescription() != null ? wc[0].getDescription() : "—");
-            tvWeatherIcon.setText(ComfortIndex.getComfortEmoji(w.getMain().getTemp(), wc[0].getId()));
+            ivWeatherIcon.setImageResource(WeatherIcon.getResId(wc[0].getIcon()));
         } else {
             tvDesc.setText("—");
-            tvWeatherIcon.setText("☁️");
+            ivWeatherIcon.setImageResource(R.drawable.ow_01d);
         }
 
         // 3 карточки деталей

@@ -3,6 +3,7 @@ package com.home.myweather.ui.adapters;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -14,8 +15,9 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-import com.home.myweather.data.model.ForecastItem;
 import com.home.myweather.R;
+import com.home.myweather.data.model.ForecastItem;
+import com.home.myweather.utils.WeatherIcon;
 
 public class HourlyAdapter extends RecyclerView.Adapter<HourlyAdapter.ViewHolder> {
 
@@ -49,6 +51,13 @@ public class HourlyAdapter extends RecyclerView.Adapter<HourlyAdapter.ViewHolder
         }
 
         h.tvPop.setText(String.format(Locale.getDefault(), "%.0f%%", item.pop * 100));
+
+        // SVG-иконка погоды
+        String iconCode = null;
+        if (item.weather != null && item.weather.length > 0 && item.weather[0] != null) {
+            iconCode = item.weather[0].icon;
+        }
+        h.ivIcon.setImageResource(WeatherIcon.getResId(iconCode));
     }
 
     @Override
@@ -58,12 +67,14 @@ public class HourlyAdapter extends RecyclerView.Adapter<HourlyAdapter.ViewHolder
 
     static class ViewHolder extends RecyclerView.ViewHolder {
         final TextView tvTime, tvTemp, tvPop;
+        final ImageView ivIcon;
 
         ViewHolder(View v) {
             super(v);
             tvTime = v.findViewById(R.id.tv_time);
             tvTemp = v.findViewById(R.id.tv_temp);
             tvPop = v.findViewById(R.id.tv_pop);
+            ivIcon = v.findViewById(R.id.iv_icon);
         }
     }
 }

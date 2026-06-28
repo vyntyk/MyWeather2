@@ -24,11 +24,18 @@
             android:textColor="#757575"
             android:textSize="12sp" />
 
+        <ImageView
+            android:id="@+id/iv_icon"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginTop="4dp"
+            android:contentDescription="погода" />
+
         <TextView
             android:id="@+id/tv_temp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="2dp"
             android:textColor="@color/black"
             android:textSize="18sp"
             android:textStyle="bold" />
