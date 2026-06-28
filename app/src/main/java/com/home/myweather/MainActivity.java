@@ -111,6 +111,8 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 forecastFragment.showPlaceholder();
             }
+        } else if (id == R.id.nav_map) {
+            showFragment(mapFragment, TAG_MAP);
         } else if (id == R.id.nav_cities) {
             showFragment(citiesFragment, TAG_CITIES);
         } else if (id == R.id.nav_settings) {

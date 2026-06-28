@@ -1,5 +1,6 @@
 package com.home.myweather.ui.fragments;
 
+import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.content.Context;
 import android.view.LayoutInflater;
@@ -12,7 +13,6 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -23,12 +23,8 @@ import java.util.List;
 import java.util.Locale;
 
 import com.home.myweather.R;
-import com.home.myweather.helpers.LocationHelper;
-import com.home.myweather.helpers.UiController;
 import com.home.myweather.data.repository.WeatherRepository;
 import com.home.myweather.data.model.WeatherResponse;
-import com.home.myweather.data.model.DailyData;
-import com.home.myweather.utils.WeatherFormatter;
 import com.home.myweather.data.model.ForecastResponse;
 import com.home.myweather.utils.ComfortIndex;
 import com.home.myweather.ui.adapters.HourlyAdapter;
@@ -41,13 +37,11 @@ public class NowFragment extends Fragment {
     private static final String STATE_WEATHER = "last_weather";
     private static final String STATE_GEO = "last_geo";
     private static final String STATE_HOURLY = "hourly";
-    private static final String STATE_BG_RES = "bg_res";
 
-    private TextView tvCity, tvTemp, tvFeels, tvDesc, tvWind, tvPressure, tvHumidity;
-    private TextView tvComfort;
+    private TextView tvWeatherIcon, tvTemp, tvFeels, tvDesc, tvComfort, tvComfortEmoji;
+    private TextView tvWindValue, tvPressureValue, tvHumidityValue;
     private RecyclerView rvHourly;
     private EditText cityField;
-    private ConstraintLayout mBackground;
 
     private HourlyAdapter hourlyAdapter;
     private WeatherRepository weatherRepository;
@@ -56,25 +50,25 @@ public class NowFragment extends Fragment {
     private ArrayList<ForecastItem> cachedHourly = new ArrayList<>();
     private double cachedHourlyLat = Double.NaN;
     private double cachedHourlyLon = Double.NaN;
-    private int selectedBgRes = R.drawable.foto4;
 
+    @SuppressLint("MissingInflatedId")
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.fragment_now, container, false);
 
-        tvCity = v.findViewById(R.id.tv_city);
+        tvWeatherIcon = v.findViewById(R.id.tv_weather_icon);
         tvTemp = v.findViewById(R.id.tv_temp);
         tvFeels = v.findViewById(R.id.tv_feels);
         tvDesc = v.findViewById(R.id.tv_desc);
-        tvWind = v.findViewById(R.id.tv_wind);
-        tvPressure = v.findViewById(R.id.tv_pressure);
-        tvHumidity = v.findViewById(R.id.tv_humidity);
         tvComfort = v.findViewById(R.id.tv_comfort);
+        tvComfortEmoji = v.findViewById(R.id.tv_comfort_emoji);
+        tvWindValue = v.findViewById(R.id.tv_wind_value);
+        tvPressureValue = v.findViewById(R.id.tv_pressure_value);
+        tvHumidityValue = v.findViewById(R.id.tv_humidity_value);
         rvHourly = v.findViewById(R.id.rv_hourly);
         cityField = v.findViewById(R.id.user_field);
-        mBackground = v.findViewById(R.id.background);
 
         hourlyAdapter = new HourlyAdapter();
         rvHourly.setLayoutManager(new LinearLayoutManager(requireContext(),
@@ -89,7 +83,6 @@ public class NowFragment extends Fragment {
             ArrayList<ForecastItem> restoredHourly =
                     (ArrayList<ForecastItem>) savedInstanceState.getSerializable(STATE_HOURLY);
             if (restoredHourly != null) cachedHourly = restoredHourly;
-            selectedBgRes = savedInstanceState.getInt(STATE_BG_RES, R.drawable.foto4);
             if (lastGeo != null && !cachedHourly.isEmpty()) {
                 cachedHourlyLat = lastGeo.lat;
                 cachedHourlyLon = lastGeo.lon;
@@ -98,20 +91,11 @@ public class NowFragment extends Fragment {
 
         if (lastWeather != null) showWeather(lastWeather);
         hourlyAdapter.setItems(cachedHourly);
-        mBackground.setBackgroundResource(selectedBgRes);
 
         v.findViewById(R.id.main_btn).setOnClickListener(vv -> onSearchClick());
         v.findViewById(R.id.geo_btn).setOnClickListener(vv -> onGeoClick());
-        v.findViewById(R.id.btn1).setOnClickListener(vv -> setBackground(R.drawable.foto1));
-        v.findViewById(R.id.btn2).setOnClickListener(vv -> setBackground(R.drawable.foto2));
-        v.findViewById(R.id.btn3).setOnClickListener(vv -> setBackground(R.drawable.foto3));
 
         return v;
-    }
-
-    private void setBackground(int resId) {
-        selectedBgRes = resId;
-        if (mBackground != null) mBackground.setBackgroundResource(resId);
     }
 
     private void onSearchClick() {
@@ -151,13 +135,15 @@ public class NowFragment extends Fragment {
     }
 
     private void showLoading() {
-        tvTemp.setText("Загрузка...");
+        tvTemp.setText("—");
         tvFeels.setText("—");
-        tvWind.setText("—");
-        tvPressure.setText("—");
-        tvHumidity.setText("—");
         tvDesc.setText("—");
-        tvComfort.setText("—");
+        tvComfort.setText("Загрузка...");
+        tvComfortEmoji.setText("⏳");
+        tvWindValue.setText("—");
+        tvPressureValue.setText("—");
+        tvHumidityValue.setText("—");
+        tvWeatherIcon.setText("☁️");
         cachedHourly.clear();
         cachedHourlyLat = Double.NaN;
         cachedHourlyLon = Double.NaN;
@@ -167,39 +153,38 @@ public class NowFragment extends Fragment {
     private void showWeather(WeatherResponse w) {
         if (w == null || w.getMain() == null) return;
 
-        tvCity.setText(w.getName() != null ? w.getName() : "—");
-        tvTemp.setText(String.format(Locale.getDefault(), "%.1f°C", w.getMain().getTemp()));
-        tvFeels.setText(String.format(Locale.getDefault(), "Ощущается: %.1f°C", w.getMain().getFeelsLike()));
-        tvPressure.setText(String.format(Locale.getDefault(), "Давление: %d гПа", w.getMain().getPressure()));
-        tvHumidity.setText(String.format(Locale.getDefault(), "Влажность: %d%%", w.getMain().getHumidity()));
+        // Температура
+        tvTemp.setText(String.format(Locale.US, "%.1f°C", w.getMain().getTemp()));
+        tvFeels.setText(String.format(Locale.US, "Ощущается: %.1f°", w.getMain().getFeelsLike()));
 
-        if (w.getWind() != null) {
-            tvWind.setText(String.format(Locale.getDefault(), "Ветер: %.1f м/с", w.getWind().getSpeed()));
-        } else {
-            tvWind.setText("Ветер: нет данных");
-        }
-
+        // Описание и иконка
         WeatherResponse.WeatherCondition[] wc = w.getWeather();
         if (wc != null && wc.length > 0 && wc[0] != null) {
             tvDesc.setText(wc[0].getDescription() != null ? wc[0].getDescription() : "—");
+            tvWeatherIcon.setText(ComfortIndex.getComfortEmoji(w.getMain().getTemp(), wc[0].getId()));
         } else {
             tvDesc.setText("—");
+            tvWeatherIcon.setText("☁️");
         }
 
+        // 3 карточки деталей
+        if (w.getWind() != null) {
+            tvWindValue.setText(String.format(Locale.US, "%.1f", w.getWind().getSpeed()));
+        } else {
+            tvWindValue.setText("—");
+        }
+        tvPressureValue.setText(String.valueOf(w.getMain().getPressure()));
+        tvHumidityValue.setText(String.valueOf(w.getMain().getHumidity()));
+
+        // Индекс комфорта
         double temp = w.getMain().getTemp();
         double windSpeed = w.getWind() != null ? w.getWind().getSpeed() : 0;
         int humidity = w.getMain().getHumidity();
         int pressure = w.getMain().getPressure();
         double pop = cachedHourly.isEmpty() ? 0 : cachedHourly.get(0).pop;
-        int weatherId = (wc != null && wc.length > 0 && wc[0] != null) ? wc[0].getId() : 800;
 
         tvComfort.setText(ComfortIndex.getComfortMessage(temp, windSpeed, humidity, pressure, pop));
-
-        Calendar cal = Calendar.getInstance();
-        int hour = cal.get(Calendar.HOUR_OF_DAY);
-        boolean isDay = hour >= 6 && hour < 20;
-        selectedBgRes = ComfortIndex.getBackgroundResource(weatherId, isDay);
-        mBackground.setBackgroundResource(selectedBgRes);
+        tvComfortEmoji.setText(ComfortIndex.getComfortEmoji(temp, (wc != null && wc.length > 0 && wc[0] != null) ? wc[0].getId() : 800));
     }
 
     private void loadForecast(double lat, double lon) {
@@ -271,7 +256,7 @@ public class NowFragment extends Fragment {
                 public void onError(String message) {
                     if (isAdded() && getActivity() != null && !getActivity().isDestroyed()) {
                         requireActivity().runOnUiThread(() -> {
-                            tvTemp.setText("Нет соединения с интернетом");
+                            tvTemp.setText("Нет соединения");
                             Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
                         });
                     }
@@ -284,7 +269,6 @@ public class NowFragment extends Fragment {
         if (lastWeather != null) out.putSerializable(STATE_WEATHER, lastWeather);
         if (lastGeo != null) out.putSerializable(STATE_GEO, lastGeo);
         out.putSerializable(STATE_HOURLY, cachedHourly);
-        out.putInt(STATE_BG_RES, selectedBgRes);
     }
 
     @Override

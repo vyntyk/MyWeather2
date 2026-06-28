@@ -13,8 +13,10 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+
 import com.home.myweather.data.model.ForecastItem;
 import com.home.myweather.R;
+
 public class HourlyAdapter extends RecyclerView.Adapter<HourlyAdapter.ViewHolder> {
 
     private final List<ForecastItem> items = new ArrayList<>();
@@ -46,7 +48,7 @@ public class HourlyAdapter extends RecyclerView.Adapter<HourlyAdapter.ViewHolder
             h.tvTemp.setText("—");
         }
 
-        h.tvDesc.setText(String.format(Locale.getDefault(), "Осадки\n%.0f%%", item.pop * 100));
+        h.tvPop.setText(String.format(Locale.getDefault(), "%.0f%%", item.pop * 100));
     }
 
     @Override
@@ -55,13 +57,13 @@ public class HourlyAdapter extends RecyclerView.Adapter<HourlyAdapter.ViewHolder
     }
 
     static class ViewHolder extends RecyclerView.ViewHolder {
-        final TextView tvTime, tvTemp, tvDesc;
+        final TextView tvTime, tvTemp, tvPop;
 
         ViewHolder(View v) {
             super(v);
             tvTime = v.findViewById(R.id.tv_time);
             tvTemp = v.findViewById(R.id.tv_temp);
-            tvDesc = v.findViewById(R.id.tv_desc);
+            tvPop = v.findViewById(R.id.tv_pop);
         }
     }
 }
