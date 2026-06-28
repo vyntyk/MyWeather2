@@ -15,7 +15,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:paddingHorizontal="16dp"
+            android:paddingLeft="16dp"
+            android:paddingRight="16dp"
             android:paddingBottom="16dp"
             android:gravity="center_vertical">
 
@@ -35,7 +36,8 @@
                 android:layout_height="wrap_content"
                 android:text="☀️"
                 android:textSize="28sp"
-                android:layout_marginHorizontal="12dp" />
+                android:layout_marginLeft="12dp"
+                android:layout_marginRight="12dp" />
 
             <LinearLayout
                 android:layout_width="wrap_content"
@@ -72,7 +74,9 @@
             android:layout_marginRight="12dp"
             android:paddingLeft="12dp"
             android:paddingRight="12dp"
-            android:paddingVertical="8dp">
+            android:paddingVertical="8dp"
+            android:layout_marginBottom="12dp"
+            android:gravity="center">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -87,7 +91,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingHorizontal="12dp">
+            android:paddingLeft="12dp"
+            android:paddingRight="12dp">
 
             <!-- Ряд 1 -->
             <LinearLayout
@@ -102,7 +107,8 @@
                     android:layout_weight="1"
                     android:orientation="vertical"
                     android:background="@drawable/card_bg"
-                    android:paddingHorizontal="12dp"
+                    android:paddingLeft="12dp"
+                    android:paddingRight="12dp"
                     android:paddingVertical="10dp"
                     android:layout_marginRight="4dp">
                     <TextView
@@ -129,7 +135,8 @@
                     android:layout_weight="1"
                     android:orientation="vertical"
                     android:background="@drawable/card_bg"
-                    android:paddingHorizontal="12dp"
+                    android:paddingLeft="12dp"
+                    android:paddingRight="12dp"
                     android:paddingVertical="10dp">
                     <TextView
                         android:layout_width="wrap_content"
@@ -163,7 +170,8 @@
                     android:layout_weight="1"
                     android:orientation="vertical"
                     android:background="@drawable/card_bg"
-                    android:paddingHorizontal="12dp"
+                    android:paddingLeft="12dp"
+                    android:paddingRight="12dp"
                     android:paddingVertical="10dp"
                     android:layout_marginRight="4dp">
                     <TextView
@@ -190,7 +198,8 @@
                     android:layout_weight="1"
                     android:orientation="vertical"
                     android:background="@drawable/card_bg"
-                    android:paddingHorizontal="12dp"
+                    android:paddingLeft="12dp"
+                    android:paddingRight="12dp"
                     android:paddingVertical="10dp">
                     <TextView
                         android:layout_width="wrap_content"
@@ -223,7 +232,8 @@
                     android:layout_weight="1"
                     android:orientation="vertical"
                     android:background="@drawable/card_bg"
-                    android:paddingHorizontal="12dp"
+                    android:paddingLeft="12dp"
+                    android:paddingRight="12dp"
                     android:paddingVertical="10dp"
                     android:layout_marginRight="4dp">
                     <TextView
@@ -250,7 +260,8 @@
                     android:layout_weight="1"
                     android:orientation="vertical"
                     android:background="@drawable/card_bg"
-                    android:paddingHorizontal="12dp"
+                    android:paddingLeft="12dp"
+                    android:paddingRight="12dp"
                     android:paddingVertical="10dp">
                     <TextView
                         android:layout_width="wrap_content"
