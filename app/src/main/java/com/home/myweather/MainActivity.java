@@ -138,6 +138,10 @@ public class MainActivity extends AppCompatActivity {
                     lastGeo.name = "GPS";
                     nowFragment.loadWeatherByCoords(lat, lon);
                     forecastFragment.setGeoLocation(lastGeo);
+                    // Перемещаем карту к полученным координатам
+                    if (mapFragment != null && mapFragment.isAdded()) {
+                        mapFragment.moveToLocation(lat, lon);
+                    }
                 });
             }
 
