@@ -14,7 +14,7 @@
         android:text="@string/favorite_cities_title"
         android:layout_marginTop="16dp"
         android:textAlignment="center"
-        android:textColor="@color/black"
+        android:textColor="@color/white"
         android:textSize="24sp"
         android:textStyle="bold"
         android:layout_marginBottom="16dp" />
