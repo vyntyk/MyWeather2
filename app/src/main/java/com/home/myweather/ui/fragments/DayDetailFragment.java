@@ -1,5 +1,6 @@
 package com.home.myweather.ui.fragments;
 
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -50,8 +51,19 @@ public class DayDetailFragment extends Fragment {
             SimpleDateFormat sdf = new SimpleDateFormat("EEEE, d MMMM", Locale.getDefault());
             tvTitle.setText(sdf.format(new Date(day.dateMillis)));
 
+            SharedPreferences prefs = requireContext().getSharedPreferences("myweather_prefs", 0);
+            String unit = prefs.getString("temp_unit", "C");
+
             StringBuilder sb = new StringBuilder();
-            sb.append(String.format(Locale.getDefault(), "🌡 Температура: %.0f° / %.0f°\n\n", day.tempMin, day.tempMax));
+            double tempMin = day.tempMin;
+            double tempMax = day.tempMax;
+            if ("F".equals(unit)) {
+                tempMin = tempMin * 9 / 5 + 32;
+                tempMax = tempMax * 9 / 5 + 32;
+                sb.append(String.format(Locale.getDefault(), "🌡 Температура: %.0f°F / %.0f°F\n\n", tempMin, tempMax));
+            } else {
+                sb.append(String.format(Locale.getDefault(), "🌡 Температура: %.0f°C / %.0f°C\n\n", tempMin, tempMax));
+            }
             sb.append(String.format(Locale.getDefault(), "💧 Вероятность осадков: %.0f%%\n\n", day.pop * 100));
             sb.append(String.format(Locale.getDefault(), "📝 Описание: %s\n\n", day.description != null ? day.description : "—"));
 
@@ -65,9 +77,14 @@ public class DayDetailFragment extends Fragment {
                     int hum = item.main != null ? item.main.humidity : 0;
                     int pressureHpa = item.main != null ? item.main.pressure : 0;
                     double pressureMmHg = pressureHpa * HPA_TO_MMHG;
-                     // И в форматировании:
-                    sb.append(String.format(Locale.getDefault(), "   %s — %.0f°, %.1f м/с, %d%%, %.1f мм рт.ст.\n",
-                            time, temp, wind, hum, pressureMmHg));
+                    if ("F".equals(unit)) {
+                        temp = temp * 9 / 5 + 32;
+                        sb.append(String.format(Locale.getDefault(), "   %s — %.0f°F, %.1f м/с, %d%%, %.1f мм рт.ст.\n",
+                                time, temp, wind, hum, pressureMmHg));
+                    } else {
+                        sb.append(String.format(Locale.getDefault(), "   %s — %.0f°C, %.1f м/с, %d%%, %.1f мм рт.ст.\n",
+                                time, temp, wind, hum, pressureMmHg));
+                    }
                 }
             }
 

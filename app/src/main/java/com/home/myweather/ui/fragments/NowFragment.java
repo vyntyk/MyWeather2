@@ -74,7 +74,7 @@ public class NowFragment extends Fragment {
         rvHourly = v.findViewById(R.id.rv_hourly);
         cityField = v.findViewById(R.id.user_field);
 
-        hourlyAdapter = new HourlyAdapter();
+        hourlyAdapter = new HourlyAdapter(requireContext());
         rvHourly.setLayoutManager(new LinearLayoutManager(requireContext(),
                 LinearLayoutManager.HORIZONTAL, false));
         rvHourly.setAdapter(hourlyAdapter);
@@ -156,8 +156,21 @@ public class NowFragment extends Fragment {
     private void showWeather(WeatherResponse w) {
         if (w == null || w.getMain() == null) return;
 
-        tvTemp.setText(String.format(Locale.US, "%.1f°C", w.getMain().getTemp()));
-        tvFeels.setText(String.format(Locale.US, "Ощущается: %.1f°", w.getMain().getFeelsLike()));
+        String unit = requireContext().getSharedPreferences("myweather_prefs", 0)
+                .getString("temp_unit", "C");
+        
+        double temp = w.getMain().getTemp();
+        double feelsLike = w.getMain().getFeelsLike();
+        
+        if ("F".equals(unit)) {
+            temp = temp * 9 / 5 + 32;
+            feelsLike = feelsLike * 9 / 5 + 32;
+            tvTemp.setText(String.format(Locale.US, "%.1f°F", temp));
+            tvFeels.setText(String.format(Locale.US, "Ощущается: %.1f°F", feelsLike));
+        } else {
+            tvTemp.setText(String.format(Locale.US, "%.1f°C", temp));
+            tvFeels.setText(String.format(Locale.US, "Ощущается: %.1f°C", feelsLike));
+        }
 
         WeatherResponse.WeatherCondition[] wc = w.getWeather();
         if (wc != null && wc.length > 0 && wc[0] != null) {
@@ -180,7 +193,6 @@ public class NowFragment extends Fragment {
 
         tvHumidityValue.setText(String.valueOf(w.getMain().getHumidity()));
 
-        double temp = w.getMain().getTemp();
         double windSpeed = w.getWind() != null ? w.getWind().getSpeed() : 0;
         int humidity = w.getMain().getHumidity();
         int pressure = w.getMain().getPressure();
@@ -274,6 +286,12 @@ public class NowFragment extends Fragment {
                     }
                 }
             };
+
+    public void refresh() {
+        if (lastWeather != null) {
+            showWeather(lastWeather);
+        }
+    }
 
     @Override
     public void onSaveInstanceState(@NonNull Bundle out) {

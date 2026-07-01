@@ -5,10 +5,12 @@ import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.widget.Toast;
+import android.content.SharedPreferences;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
 import androidx.fragment.app.Fragment;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -44,6 +46,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        applyStoredTheme();
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
@@ -85,6 +88,16 @@ public class MainActivity extends AppCompatActivity {
         });
 
         hideSystemUI();
+    }
+
+    private void applyStoredTheme() {
+        SharedPreferences prefs = getSharedPreferences("myweather_prefs", 0);
+        boolean isDarkTheme = prefs.getBoolean("dark_theme", false);
+        if (isDarkTheme) {
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
+        } else {
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+        }
     }
 
     private void restoreFragments() {
@@ -138,7 +151,6 @@ public class MainActivity extends AppCompatActivity {
                     lastGeo.name = "GPS";
                     nowFragment.loadWeatherByCoords(lat, lon);
                     forecastFragment.setGeoLocation(lastGeo);
-                    // Перемещаем карту к полученным координатам
                     if (mapFragment != null && mapFragment.isAdded()) {
                         mapFragment.moveToLocation(lat, lon);
                     }
@@ -173,6 +185,15 @@ public class MainActivity extends AppCompatActivity {
         if (geo == null) return;
         lastGeo = geo;
         forecastFragment.setGeoLocation(geo);
+    }
+
+    public void refreshWeatherDisplay() {
+        if (nowFragment != null && nowFragment.isAdded()) {
+            nowFragment.refresh();
+        }
+        if (forecastFragment != null && forecastFragment.isAdded()) {
+            forecastFragment.refresh();
+        }
     }
 
     @Override

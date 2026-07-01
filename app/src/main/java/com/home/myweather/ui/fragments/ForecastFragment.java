@@ -53,7 +53,7 @@ public class ForecastFragment extends Fragment {
         tvPlaceholder = v.findViewById(R.id.tv_placeholder);
         tvForecastCity = v.findViewById(R.id.tv_forecast_city);
 
-        dailyAdapter = new DailyAdapter();
+        dailyAdapter = new DailyAdapter(requireContext());
         dailyAdapter.setOnDayClickListener(day -> {
             if (getActivity() instanceof MainActivity) {
                 ((MainActivity) getActivity()).openDayDetail(day);
@@ -200,6 +200,12 @@ public class ForecastFragment extends Fragment {
             }
         }
         return result;
+    }
+
+    public void refresh() {
+        if (!cachedDays.isEmpty()) {
+            showCachedDays();
+        }
     }
 
     @Override

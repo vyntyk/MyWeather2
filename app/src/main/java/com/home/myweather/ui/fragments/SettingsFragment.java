@@ -8,11 +8,13 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatDelegate;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.fragment.app.Fragment;
 
 import com.google.android.material.radiobutton.MaterialRadioButton;
 import com.home.myweather.R;
+import com.home.myweather.MainActivity;
 
 /**
  * SettingsFragment — реальные настройки приложения.
@@ -35,6 +37,7 @@ public class SettingsFragment extends Fragment {
         swDarkTheme.setChecked(isDarkTheme);
         swDarkTheme.setOnCheckedChangeListener((btn, isChecked) -> {
             prefs.edit().putBoolean("dark_theme", isChecked).apply();
+            applyTheme(isChecked);
             requireActivity().recreate();
         });
         
@@ -50,13 +53,33 @@ public class SettingsFragment extends Fragment {
         }
         
         rbCelsius.setOnCheckedChangeListener((btn, isChecked) -> {
-            if (isChecked) prefs.edit().putString("temp_unit", "C").apply();
+            if (isChecked) {
+                prefs.edit().putString("temp_unit", "C").apply();
+                notifyDataChanged();
+            }
         });
         
         rbFahrenheit.setOnCheckedChangeListener((btn, isChecked) -> {
-            if (isChecked) prefs.edit().putString("temp_unit", "F").apply();
+            if (isChecked) {
+                prefs.edit().putString("temp_unit", "F").apply();
+                notifyDataChanged();
+            }
         });
         
         return v;
+    }
+
+    private void applyTheme(boolean isDark) {
+        if (isDark) {
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
+        } else {
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+        }
+    }
+
+    private void notifyDataChanged() {
+        if (getActivity() instanceof MainActivity) {
+            ((MainActivity) getActivity()).refreshWeatherDisplay();
+        }
     }
 }

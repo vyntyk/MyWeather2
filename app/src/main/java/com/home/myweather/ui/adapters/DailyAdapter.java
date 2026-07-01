@@ -1,5 +1,7 @@
 package com.home.myweather.ui.adapters;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -33,9 +35,19 @@ public class DailyAdapter extends ListAdapter<DailyData, DailyAdapter.ViewHolder
 
     private final SimpleDateFormat dayFormat = new SimpleDateFormat("EEEE, d MMM", Locale.getDefault());
     private OnDayClickListener listener;
+    private Context context;
+
+    public DailyAdapter(Context context) {
+        super(DIFF_CALLBACK);
+        this.context = context;
+    }
 
     public DailyAdapter() {
         super(DIFF_CALLBACK);
+    }
+
+    public void setContext(Context context) {
+        this.context = context;
     }
 
     private static final DiffUtil.ItemCallback<DailyData> DIFF_CALLBACK =
@@ -62,7 +74,8 @@ public class DailyAdapter extends ListAdapter<DailyData, DailyAdapter.ViewHolder
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View v = LayoutInflater.from(parent.getContext())
+        if (context == null) context = parent.getContext();
+        View v = LayoutInflater.from(context)
                 .inflate(R.layout.item_daily, parent, false);
         return new ViewHolder(v);
     }
@@ -72,8 +85,24 @@ public class DailyAdapter extends ListAdapter<DailyData, DailyAdapter.ViewHolder
         DailyData day = getItem(position);
         if (day == null) return;
 
+        String unit = "C";
+        if (context != null) {
+            SharedPreferences prefs = context.getSharedPreferences("myweather_prefs", 0);
+            unit = prefs.getString("temp_unit", "C");
+        }
+
         h.tvDay.setText(dayFormat.format(new Date(day.dateMillis)));
-        h.tvTempRange.setText(String.format(Locale.getDefault(), "%.0f° / %.0f°", day.tempMin, day.tempMax));
+        
+        double tempMin = day.tempMin;
+        double tempMax = day.tempMax;
+        if ("F".equals(unit)) {
+            tempMin = tempMin * 9 / 5 + 32;
+            tempMax = tempMax * 9 / 5 + 32;
+            h.tvTempRange.setText(String.format(Locale.getDefault(), "%.0f°F / %.0f°F", tempMin, tempMax));
+        } else {
+            h.tvTempRange.setText(String.format(Locale.getDefault(), "%.0f°C / %.0f°C", tempMin, tempMax));
+        }
+        
         h.tvDesc.setText(day.description != null ? day.description : "—");
         h.tvPop.setText(String.format(Locale.getDefault(), "Осадки %.0f%%", day.pop * 100));
         h.tvWind.setText(String.format(Locale.getDefault(), "Скорость ветра: %.1f м/с", getMaxWindSpeed(day)));

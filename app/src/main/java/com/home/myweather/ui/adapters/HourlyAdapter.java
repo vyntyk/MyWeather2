@@ -1,5 +1,7 @@
 package com.home.myweather.ui.adapters;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -31,9 +33,19 @@ import com.home.myweather.utils.WeatherIcon;
 public class HourlyAdapter extends ListAdapter<ForecastItem, HourlyAdapter.ViewHolder> {
 
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
+    private Context context;
+
+    public HourlyAdapter(Context context) {
+        super(DIFF_CALLBACK);
+        this.context = context;
+    }
 
     public HourlyAdapter() {
         super(DIFF_CALLBACK);
+    }
+
+    public void setContext(Context context) {
+        this.context = context;
     }
 
     /**
@@ -78,7 +90,8 @@ public class HourlyAdapter extends ListAdapter<ForecastItem, HourlyAdapter.ViewH
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View v = LayoutInflater.from(parent.getContext())
+        if (context == null) context = parent.getContext();
+        View v = LayoutInflater.from(context)
                 .inflate(R.layout.item_hourly, parent, false);
         return new ViewHolder(v);
     }
@@ -91,7 +104,18 @@ public class HourlyAdapter extends ListAdapter<ForecastItem, HourlyAdapter.ViewH
         h.tvTime.setText(timeFormat.format(new Date(item.timestamp * 1000L)));
 
         if (item.main != null) {
-            h.tvTemp.setText(String.format(Locale.getDefault(), "%.0f°", item.main.temp));
+            double temp = item.main.temp;
+            String unit = "C";
+            if (context != null) {
+                SharedPreferences prefs = context.getSharedPreferences("myweather_prefs", 0);
+                unit = prefs.getString("temp_unit", "C");
+            }
+            if ("F".equals(unit)) {
+                temp = temp * 9 / 5 + 32;
+                h.tvTemp.setText(String.format(Locale.getDefault(), "%.0f°F", temp));
+            } else {
+                h.tvTemp.setText(String.format(Locale.getDefault(), "%.0f°C", temp));
+            }
         } else {
             h.tvTemp.setText("—");
         }
