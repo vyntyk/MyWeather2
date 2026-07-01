@@ -22,6 +22,7 @@ import com.home.myweather.MainActivity;
 public class SettingsFragment extends Fragment {
 
     private SharedPreferences prefs;
+    private boolean isUpdating = false;
 
     @Nullable
     @Override
@@ -46,23 +47,33 @@ public class SettingsFragment extends Fragment {
         MaterialRadioButton rbFahrenheit = v.findViewById(R.id.rb_fahrenheit);
         
         String unit = prefs.getString("temp_unit", "C");
+        isUpdating = true;
         if ("F".equals(unit)) {
             rbFahrenheit.setChecked(true);
         } else {
             rbCelsius.setChecked(true);
         }
+        isUpdating = false;
         
         rbCelsius.setOnCheckedChangeListener((btn, isChecked) -> {
+            if (isUpdating) return;
             if (isChecked) {
+                isUpdating = true;
                 prefs.edit().putString("temp_unit", "C").apply();
+                rbFahrenheit.setChecked(false);
                 notifyDataChanged();
+                isUpdating = false;
             }
         });
         
         rbFahrenheit.setOnCheckedChangeListener((btn, isChecked) -> {
+            if (isUpdating) return;
             if (isChecked) {
+                isUpdating = true;
                 prefs.edit().putString("temp_unit", "F").apply();
+                rbCelsius.setChecked(false);
                 notifyDataChanged();
+                isUpdating = false;
             }
         });
         
