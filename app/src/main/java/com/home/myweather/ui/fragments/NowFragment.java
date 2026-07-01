@@ -26,6 +26,7 @@ import java.util.Locale;
 import com.home.myweather.R;
 import com.home.myweather.data.repository.WeatherRepository;
 import com.home.myweather.data.repository.ForecastCache;
+import com.home.myweather.data.repository.WeatherStorage;
 import com.home.myweather.data.model.WeatherResponse;
 import com.home.myweather.data.model.ForecastResponse;
 import com.home.myweather.utils.ComfortIndex;
@@ -50,6 +51,7 @@ public class NowFragment extends Fragment {
 
     private HourlyAdapter hourlyAdapter;
     private WeatherRepository weatherRepository;
+    private WeatherStorage weatherStorage;
     private WeatherResponse lastWeather;
     private GeoLocation lastGeo;
     private ArrayList<ForecastItem> cachedHourly = new ArrayList<>();
@@ -80,8 +82,10 @@ public class NowFragment extends Fragment {
         rvHourly.setAdapter(hourlyAdapter);
 
         weatherRepository = new WeatherRepository();
+        weatherStorage = new WeatherStorage(requireContext());
 
         if (savedInstanceState != null) {
+            // Восстановление после поворота экрана — берём из Bundle (быстро)
             lastWeather = (WeatherResponse) savedInstanceState.getSerializable(STATE_WEATHER);
             lastGeo = (GeoLocation) savedInstanceState.getSerializable(STATE_GEO);
             ArrayList<ForecastItem> restoredHourly =
@@ -91,10 +95,22 @@ public class NowFragment extends Fragment {
                 cachedHourlyLat = lastGeo.lat;
                 cachedHourlyLon = lastGeo.lon;
             }
+        } else {
+            // Первый запуск или возврат после закрытия процесса — загружаем из диска
+            lastWeather = weatherStorage.loadWeather();
+            lastGeo = weatherStorage.loadGeo();
+            cachedHourly = weatherStorage.loadHourly();
+            if (lastGeo != null && !cachedHourly.isEmpty()) {
+                cachedHourlyLat = lastGeo.lat;
+                cachedHourlyLon = lastGeo.lon;
+            }
         }
 
         if (lastWeather != null) showWeather(lastWeather);
         hourlyAdapter.submitList(new ArrayList<>(cachedHourly));
+
+        // Если есть сохранённое гео — уведомляем Activity (для ForecastFragment)
+        if (lastGeo != null) notifyActivityAboutGeo(lastGeo);
 
         v.findViewById(R.id.main_btn).setOnClickListener(vv -> onSearchClick());
         v.findViewById(R.id.geo_btn).setOnClickListener(vv -> onGeoClick());
@@ -240,7 +256,11 @@ public class NowFragment extends Fragment {
         cachedHourlyLat = lat;
         cachedHourlyLon = lon;
         hourlyAdapter.submitList(new ArrayList<>(cachedHourly));
-        if (lastWeather != null) showWeather(lastWeather);
+        if (lastWeather != null) {
+            showWeather(lastWeather);
+            // Сохраняем обновлённые данные (hourly теперь загружен)
+            weatherStorage.save(lastWeather, lastGeo, cachedHourly);
+        }
     }
 
     private void notifyActivityAboutGeo(GeoLocation geo) {
@@ -268,6 +288,8 @@ public class NowFragment extends Fragment {
                             GeoLocation resolvedGeo = geo != null ? geo : geoFromWeather(w);
                             lastGeo = resolvedGeo;
                             showWeather(w);
+                            // Сохраняем сразу (hourly ещё не загружен, обновится в applyHourly)
+                            weatherStorage.save(w, resolvedGeo, cachedHourly);
                             notifyActivityAboutGeo(resolvedGeo);
                             if (resolvedGeo != null) {
                                 loadForecast(resolvedGeo.lat, resolvedGeo.lon);

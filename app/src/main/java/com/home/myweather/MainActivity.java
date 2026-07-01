@@ -6,6 +6,7 @@ import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.widget.Toast;
 import android.content.SharedPreferences;
+import com.home.myweather.data.repository.WeatherStorage;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
@@ -41,6 +42,7 @@ public class MainActivity extends AppCompatActivity {
     private SettingsFragment settingsFragment;
 
     private LocationHelper locationHelper;
+    private WeatherStorage weatherStorage;
     private GeoLocation lastGeo;
     private int selectedNavItemId = R.id.nav_now;
 
@@ -51,6 +53,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         locationHelper = new LocationHelper(this);
+        weatherStorage = new WeatherStorage(this);
         BottomNavigationView bottomNav = findViewById(R.id.bottom_nav);
 
         restoreFragments();
@@ -58,6 +61,9 @@ public class MainActivity extends AppCompatActivity {
         if (savedInstanceState != null) {
             selectedNavItemId = savedInstanceState.getInt(STATE_SELECTED_NAV, R.id.nav_now);
             lastGeo = (GeoLocation) savedInstanceState.getSerializable(STATE_LAST_GEO);
+        } else {
+            // Попытка восстановить lastGeo из персистентного хранилища
+            lastGeo = weatherStorage != null ? weatherStorage.loadGeo() : null;
         }
 
         bottomNav.setOnItemSelectedListener(item -> {
