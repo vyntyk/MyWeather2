@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
-    android:background="#1D2196F3">
+    android:background="@color/bg_secondary">
 
     <LinearLayout
         android:id="@+id/background"
@@ -54,7 +54,7 @@
                     android:hint="Город"
                     android:inputType="text"
                     android:paddingHorizontal="8dp"
-                    android:textColor="@color/black"
+                    android:textColor="@color/text_primary"
                     android:textSize="16sp" />
 
                 <ImageButton
@@ -92,7 +92,7 @@
             android:layout_marginTop="4dp"
             android:text="переменная облачность"
             android:textAlignment="center"
-            android:textColor="#757575"
+            android:textColor="@color/text_primary"
             android:textSize="16sp" />
 
         <!-- ========== ТЕМПЕРАТУРА ========== -->
@@ -103,7 +103,7 @@
             android:layout_marginTop="4dp"
             android:text="17,8°C"
             android:textAlignment="center"
-            android:textColor="@color/black"
+            android:textColor="@color/text_primary"
             android:textSize="72sp"
             android:fontFamily="sans-serif-light" />
 
@@ -114,7 +114,7 @@
             android:layout_height="wrap_content"
             android:text="Ощущается: 17,7°"
             android:textAlignment="center"
-            android:textColor="#757575"
+            android:textColor="@color/text_primary"
             android:textSize="16sp" />
 
         <!-- ========== КАРТОЧКА КОМФОРТА ========== -->
@@ -123,7 +123,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             app:cardCornerRadius="16dp"
-            app:cardBackgroundColor="#FFF8E1"
+            app:cardBackgroundColor="@color/advice_bg"
             app:cardElevation="1dp">
 
             <LinearLayout
@@ -166,7 +166,7 @@
                 android:layout_weight="1"
                 android:layout_marginEnd="6dp"
                 app:cardCornerRadius="16dp"
-                app:cardBackgroundColor="@android:color/white"
+                app:cardBackgroundColor="@color/card_bg"
                 app:cardElevation="1dp">
 
                 <LinearLayout
@@ -215,7 +215,7 @@
                 android:layout_weight="1"
                 android:layout_marginEnd="6dp"
                 app:cardCornerRadius="16dp"
-                app:cardBackgroundColor="@android:color/white"
+                app:cardBackgroundColor="@color/card_bg"
                 app:cardElevation="1dp">
 
                 <LinearLayout
@@ -263,7 +263,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 app:cardCornerRadius="16dp"
-                app:cardBackgroundColor="@android:color/white"
+                app:cardBackgroundColor="@color/card_bg"
                 app:cardElevation="1dp">
 
                 <LinearLayout
@@ -313,7 +313,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:text="Прогноз на 24 часа"
-            android:textColor="@color/black"
+            android:textColor="@color/text_primary"
             android:textSize="18sp"
             android:textStyle="bold" />
 
