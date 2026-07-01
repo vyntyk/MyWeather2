@@ -14,6 +14,7 @@
     <!-- Карточки и компоненты (ночь) -->
     <color name="card_bg">#1E293B</color>
     <color name="card_bg_translucent">#1E293B</color>
+    <color name="card_bg_hourly">#334155</color>
     <color name="card_border">#334155</color>
     
     <!-- Акценты -->

@@ -14,6 +14,7 @@
     <!-- Карточки и компоненты -->
     <color name="card_bg">#FFFBFE</color>
     <color name="card_bg_translucent">#FFFFFF</color>
+    <color name="card_bg_hourly">#F5F8FB</color>
     <color name="card_border">#E2E8F0</color>
     
     <!-- Акценты -->
