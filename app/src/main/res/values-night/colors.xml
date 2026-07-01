@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Основные цвета приложения (ночь) -->
+    <color name="text_primary">#F1F5F9</color>
+    <color name="text_secondary">#CBD5E1</color>
+    <color name="text_tertiary">#94A3B8</color>
+    
+    <!-- Фоны (ночь) -->
+    <color name="bg_primary">#0F172A</color>
+    <color name="bg_secondary">#1E293B</color>
+    <color name="bg_gradient_start">#1E293B</color>
+    <color name="bg_gradient_end">#0F172A</color>
+    
+    <!-- Карточки и компоненты (ночь) -->
+    <color name="card_bg">#1E293B</color>
+    <color name="card_bg_translucent">#1E293B</color>
+    <color name="card_border">#334155</color>
+    
+    <!-- Акценты -->
+    <color name="accent_blue">#60A5FA</color>
+    <color name="accent_blue_dark">#3B82F6</color>
+    <color name="accent_blue_light">#93C5FD</color>
+    
+    <!-- Состояния -->
+    <color name="success_green">#10B981</color>
+    <color name="warning_orange">#F59E0B</color>
+    <color name="error_red">#F87171</color>
+    
+    <!-- Погодные индексы -->
+    <color name="temp_cold">#60A5FA</color>
+    <color name="temp_cool">#22D3EE</color>
+    <color name="temp_mild">#4ADE80</color>
+    <color name="temp_warm">#FBBF24</color>
+    <color name="temp_hot">#F87171</color>
+    
+    <!-- Совет (advice card) -->
+    <color name="advice_bg">#713F12</color>
+    <color name="advice_text">#FEF3C7</color>
+    <color name="advice_border">#B45309</color>
+    
+    <!-- Legacy -->
+    <color name="green">#1B5E20</color>
+    <color name="green_dark">#003300</color>
+    <color name="green_light">#A5D6A7</color>
+    <color name="blue">#0288D1</color>
+    <color name="blue_dark">#005B9F</color>
+    <color name="blue_light">#81D4FA</color>
+    <color name="black">#000000</color>
+    <color name="white">#FFFFFF</color>
+</resources>
