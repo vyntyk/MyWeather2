@@ -133,12 +133,11 @@
                 android:gravity="center_vertical"
                 android:padding="12dp">
 
-                <TextView
-                    android:id="@+id/tv_comfort_emoji"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="😊"
-                    android:textSize="28sp" />
+                <ImageView
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:src="@drawable/ic_comfort"
+                    app:tint="@color/success_green" />
 
                 <TextView
                     android:id="@+id/tv_comfort"
@@ -147,7 +146,7 @@
                     android:layout_weight="1"
                     android:layout_marginStart="8dp"
                     android:text="Отличный день для прогулки"
-                    android:textColor="#5D4037"
+                    android:textColor="@color/advice_text"
                     android:textSize="14sp"
                     android:textStyle="bold" />
             </LinearLayout>
@@ -177,11 +176,11 @@
                     android:gravity="center"
                     android:padding="12dp">
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="💨"
-                        android:textSize="24sp" />
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_wind"
+                        app:tint="@color/accent_blue" />
 
                     <TextView
                         android:id="@+id/tv_wind_value"
@@ -189,7 +188,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
                         android:text="2,1"
-                        android:textColor="@color/black"
+                        android:textColor="@color/text_primary"
                         android:textSize="20sp"
                         android:textStyle="bold" />
 
@@ -197,14 +196,14 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="м/с"
-                        android:textColor="#757575"
+                        android:textColor="@color/text_secondary"
                         android:textSize="12sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="ВЕТЕР"
-                        android:textColor="#757575"
+                        android:textColor="@color/text_secondary"
                         android:textSize="10sp" />
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
@@ -226,11 +225,11 @@
                     android:gravity="center"
                     android:padding="12dp">
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="🌡"
-                        android:textSize="24sp" />
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_pressure"
+                        app:tint="@color/warning_orange" />
 
                     <TextView
                         android:id="@+id/tv_pressure_value"
@@ -238,7 +237,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
                         android:text="1017"
-                        android:textColor="@color/black"
+                        android:textColor="@color/text_primary"
                         android:textSize="20sp"
                         android:textStyle="bold" />
 
@@ -246,14 +245,14 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="мм рт.ст."
-                        android:textColor="#757575"
+                        android:textColor="@color/text_secondary"
                         android:textSize="12sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="ДАВЛЕНИЕ"
-                        android:textColor="#757575"
+                        android:textColor="@color/text_secondary"
                         android:textSize="10sp" />
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
@@ -274,11 +273,11 @@
                     android:gravity="center"
                     android:padding="12dp">
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="💧"
-                        android:textSize="24sp" />
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_humidity"
+                        app:tint="#06B6D4" />
 
                     <TextView
                         android:id="@+id/tv_humidity_value"
@@ -286,7 +285,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
                         android:text="79"
-                        android:textColor="@color/black"
+                        android:textColor="@color/text_primary"
                         android:textSize="20sp"
                         android:textStyle="bold" />
 
@@ -294,14 +293,14 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="%"
-                        android:textColor="#757575"
+                        android:textColor="@color/text_secondary"
                         android:textSize="12sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="ВЛАЖНОСТЬ"
-                        android:textColor="#757575"
+                        android:textColor="@color/text_secondary"
                         android:textSize="10sp" />
                 </LinearLayout>
             </androidx.cardview.widget.CardView>

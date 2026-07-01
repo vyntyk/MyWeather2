@@ -7,17 +7,23 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil;
+import androidx.recyclerview.widget.ListAdapter;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import com.home.myweather.data.model.ForecastItem;
 import com.home.myweather.data.model.DailyData;
 import com.home.myweather.R;
-public class DailyAdapter extends RecyclerView.Adapter<DailyAdapter.ViewHolder> {
+import com.home.myweather.utils.WeatherIcon;
+
+/**
+ * ФИКС 1.3: ListAdapter + DiffUtil вместо notifyDataSetChanged()
+ */
+public class DailyAdapter extends ListAdapter<DailyData, DailyAdapter.ViewHolder> {
 
     private static final double HPA_TO_MMHG = 0.750062;
 
@@ -25,18 +31,32 @@ public class DailyAdapter extends RecyclerView.Adapter<DailyAdapter.ViewHolder> 
         void onDayClick(DailyData day);
     }
 
-    private final List<DailyData> days = new ArrayList<>();
     private final SimpleDateFormat dayFormat = new SimpleDateFormat("EEEE, d MMM", Locale.getDefault());
     private OnDayClickListener listener;
 
-    public void setOnDayClickListener(OnDayClickListener l) {
-        this.listener = l;
+    public DailyAdapter() {
+        super(DIFF_CALLBACK);
     }
 
-    public void setDays(List<DailyData> newDays) {
-        days.clear();
-        if (newDays != null) days.addAll(newDays);
-        notifyDataSetChanged();
+    private static final DiffUtil.ItemCallback<DailyData> DIFF_CALLBACK =
+            new DiffUtil.ItemCallback<DailyData>() {
+                @Override
+                public boolean areItemsTheSame(@NonNull DailyData old, @NonNull DailyData newDay) {
+                    return old.dateMillis == newDay.dateMillis;
+                }
+
+                @Override
+                public boolean areContentsTheSame(@NonNull DailyData old, @NonNull DailyData newDay) {
+                    return Double.compare(old.tempMin, newDay.tempMin) == 0
+                            && Double.compare(old.tempMax, newDay.tempMax) == 0
+                            && Double.compare(old.pop, newDay.pop) == 0
+                            && (old.description != null ? old.description.equals(newDay.description)
+                                    : newDay.description == null);
+                }
+            };
+
+    public void setOnDayClickListener(OnDayClickListener l) {
+        this.listener = l;
     }
 
     @NonNull
@@ -49,7 +69,8 @@ public class DailyAdapter extends RecyclerView.Adapter<DailyAdapter.ViewHolder> 
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder h, int position) {
-        DailyData day = days.get(position);
+        DailyData day = getItem(position);
+        if (day == null) return;
 
         h.tvDay.setText(dayFormat.format(new Date(day.dateMillis)));
         h.tvTempRange.setText(String.format(Locale.getDefault(), "%.0f° / %.0f°", day.tempMin, day.tempMax));
@@ -60,7 +81,7 @@ public class DailyAdapter extends RecyclerView.Adapter<DailyAdapter.ViewHolder> 
         h.tvVisibility.setText(String.format(Locale.getDefault(), "Видимость: %.1f км", getAverageVisibilityKm(day)));
         h.tvHumidity.setText(String.format(Locale.getDefault(), "Влажность: %.0f%%", getAverageHumidity(day)));
 
-        h.ivWeather.setImageResource(getWeatherIconRes(getWeatherIcon(day)));
+        h.ivWeather.setImageResource(WeatherIcon.getResId(getWeatherIcon(day)));
 
         h.itemView.setOnClickListener(v -> {
             if (listener != null) listener.onDayClick(day);
@@ -70,39 +91,11 @@ public class DailyAdapter extends RecyclerView.Adapter<DailyAdapter.ViewHolder> 
     private String getWeatherIcon(DailyData day) {
         if (day.items == null || day.items.isEmpty()) return null;
         for (ForecastItem item : day.items) {
-            if (item.weather != null
-                    && item.weather.length > 0
-                    && item.weather[0] != null
-                    && item.weather[0].icon != null) {
+            if (item.weather != null && item.weather.length > 0 && item.weather[0] != null) {
                 return item.weather[0].icon;
             }
         }
         return null;
-    }
-
-    private int getWeatherIconRes(String iconCode) {
-        if (iconCode == null) return R.drawable.ow_01d;
-        switch (iconCode) {
-            case "01d": return R.drawable.ow_01d;
-            case "01n": return R.drawable.ow_01n;
-            case "02d": return R.drawable.ow_02d;
-            case "02n": return R.drawable.ow_02n;
-            case "03d": return R.drawable.ow_03d;
-            case "03n": return R.drawable.ow_03n;
-            case "04d": return R.drawable.ow_04d;
-            case "04n": return R.drawable.ow_04n;
-            case "09d": return R.drawable.ow_09d;
-            case "09n": return R.drawable.ow_09n;
-            case "10d": return R.drawable.ow_10d;
-            case "10n": return R.drawable.ow_10n;
-            case "11d": return R.drawable.ow_11d;
-            case "11n": return R.drawable.ow_11n;
-            case "13d": return R.drawable.ow_13d;
-            case "13n": return R.drawable.ow_13n;
-            case "50d": return R.drawable.ow_50d;
-            case "50n": return R.drawable.ow_50n;
-            default: return R.drawable.ow_01d;
-        }
     }
 
     private double getMaxWindSpeed(DailyData day) {
@@ -159,11 +152,6 @@ public class DailyAdapter extends RecyclerView.Adapter<DailyAdapter.ViewHolder> 
         }
         if (count == 0) return 0;
         return humiditySum / (double) count;
-    }
-
-    @Override
-    public int getItemCount() {
-        return days.size();
     }
 
     static class ViewHolder extends RecyclerView.ViewHolder {

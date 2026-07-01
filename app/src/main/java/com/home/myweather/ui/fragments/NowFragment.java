@@ -25,6 +25,7 @@ import java.util.Locale;
 
 import com.home.myweather.R;
 import com.home.myweather.data.repository.WeatherRepository;
+import com.home.myweather.data.repository.ForecastCache;
 import com.home.myweather.data.model.WeatherResponse;
 import com.home.myweather.data.model.ForecastResponse;
 import com.home.myweather.utils.ComfortIndex;
@@ -39,10 +40,10 @@ public class NowFragment extends Fragment {
     private static final String STATE_WEATHER = "last_weather";
     private static final String STATE_GEO = "last_geo";
     private static final String STATE_HOURLY = "hourly";
-    private static final double HPA_TO_MMHG = 0.750062; // Коэффициент пересчета гПа -> мм рт.ст.
+    private static final double HPA_TO_MMHG = 0.750062;
 
     private ImageView ivWeatherIcon;
-    private TextView tvTemp, tvFeels, tvDesc, tvComfort, tvComfortEmoji;
+    private TextView tvTemp, tvFeels, tvDesc, tvComfort;
     private TextView tvWindValue, tvPressureValue, tvHumidityValue;
     private RecyclerView rvHourly;
     private EditText cityField;
@@ -67,7 +68,6 @@ public class NowFragment extends Fragment {
         tvFeels = v.findViewById(R.id.tv_feels);
         tvDesc = v.findViewById(R.id.tv_desc);
         tvComfort = v.findViewById(R.id.tv_comfort);
-        tvComfortEmoji = v.findViewById(R.id.tv_comfort_emoji);
         tvWindValue = v.findViewById(R.id.tv_wind_value);
         tvPressureValue = v.findViewById(R.id.tv_pressure_value);
         tvHumidityValue = v.findViewById(R.id.tv_humidity_value);
@@ -94,7 +94,7 @@ public class NowFragment extends Fragment {
         }
 
         if (lastWeather != null) showWeather(lastWeather);
-        hourlyAdapter.setItems(cachedHourly);
+        hourlyAdapter.submitList(new ArrayList<>(cachedHourly));
 
         v.findViewById(R.id.main_btn).setOnClickListener(vv -> onSearchClick());
         v.findViewById(R.id.geo_btn).setOnClickListener(vv -> onGeoClick());
@@ -143,7 +143,6 @@ public class NowFragment extends Fragment {
         tvFeels.setText("—");
         tvDesc.setText("—");
         tvComfort.setText("Загрузка...");
-        tvComfortEmoji.setText("⏳");
         tvWindValue.setText("—");
         tvPressureValue.setText("—");
         tvHumidityValue.setText("—");
@@ -151,17 +150,15 @@ public class NowFragment extends Fragment {
         cachedHourly.clear();
         cachedHourlyLat = Double.NaN;
         cachedHourlyLon = Double.NaN;
-        hourlyAdapter.setItems(null);
+        hourlyAdapter.submitList(null);
     }
 
     private void showWeather(WeatherResponse w) {
         if (w == null || w.getMain() == null) return;
 
-        // Температура
         tvTemp.setText(String.format(Locale.US, "%.1f°C", w.getMain().getTemp()));
         tvFeels.setText(String.format(Locale.US, "Ощущается: %.1f°", w.getMain().getFeelsLike()));
 
-        // Описание и иконка
         WeatherResponse.WeatherCondition[] wc = w.getWeather();
         if (wc != null && wc.length > 0 && wc[0] != null) {
             tvDesc.setText(wc[0].getDescription() != null ? wc[0].getDescription() : "—");
@@ -171,21 +168,18 @@ public class NowFragment extends Fragment {
             ivWeatherIcon.setImageResource(R.drawable.ow_01d);
         }
 
-        // 3 карточки деталей
         if (w.getWind() != null) {
             tvWindValue.setText(String.format(Locale.US, "%.1f", w.getWind().getSpeed()));
         } else {
             tvWindValue.setText("—");
         }
 
-        // Пересчет давления из гПа в мм рт.ст.
         int pressureHpa = w.getMain().getPressure();
         int pressureMmHg = (int) Math.round(pressureHpa * HPA_TO_MMHG);
         tvPressureValue.setText(String.valueOf(pressureMmHg));
 
         tvHumidityValue.setText(String.valueOf(w.getMain().getHumidity()));
 
-        // Индекс комфорта
         double temp = w.getMain().getTemp();
         double windSpeed = w.getWind() != null ? w.getWind().getSpeed() : 0;
         int humidity = w.getMain().getHumidity();
@@ -193,14 +187,19 @@ public class NowFragment extends Fragment {
         double pop = cachedHourly.isEmpty() ? 0 : cachedHourly.get(0).pop;
 
         tvComfort.setText(ComfortIndex.getComfortMessage(temp, windSpeed, humidity, pressure, pop));
-        tvComfortEmoji.setText(ComfortIndex.getComfortEmoji(temp, (wc != null && wc.length > 0 && wc[0] != null) ? wc[0].getId() : 800));
     }
 
     private void loadForecast(double lat, double lon) {
         if (Double.compare(cachedHourlyLat, lat) == 0
                 && Double.compare(cachedHourlyLon, lon) == 0
                 && !cachedHourly.isEmpty()) {
-            hourlyAdapter.setItems(cachedHourly);
+            hourlyAdapter.submitList(new ArrayList<>(cachedHourly));
+            return;
+        }
+
+        List<ForecastItem> sharedCache = ForecastCache.get(lat, lon);
+        if (sharedCache != null) {
+            applyHourly(sharedCache, lat, lon);
             return;
         }
 
@@ -209,23 +208,27 @@ public class NowFragment extends Fragment {
             public void onSuccess(ForecastResponse forecast) {
                 if (isAdded() && getActivity() != null && !getActivity().isDestroyed()) {
                     requireActivity().runOnUiThread(() -> {
-                        cachedHourly = new ArrayList<>();
                         List<ForecastItem> source = forecast != null ? forecast.list : null;
-                        int count = source != null ? Math.min(source.size(), 8) : 0;
-                        for (int i = 0; i < count; i++) cachedHourly.add(source.get(i));
-                        cachedHourlyLat = lat;
-                        cachedHourlyLon = lon;
-                        hourlyAdapter.setItems(cachedHourly);
-                        if (lastWeather != null) showWeather(lastWeather);
+                        ForecastCache.put(lat, lon, source);
+                        applyHourly(source, lat, lon);
                     });
                 }
             }
 
             @Override
             public void onError(String message) {
-                // The current weather is still useful even if the hourly forecast fails.
             }
         });
+    }
+
+    private void applyHourly(List<ForecastItem> source, double lat, double lon) {
+        cachedHourly = new ArrayList<>();
+        int count = source != null ? Math.min(source.size(), 8) : 0;
+        for (int i = 0; i < count; i++) cachedHourly.add(source.get(i));
+        cachedHourlyLat = lat;
+        cachedHourlyLon = lon;
+        hourlyAdapter.submitList(new ArrayList<>(cachedHourly));
+        if (lastWeather != null) showWeather(lastWeather);
     }
 
     private void notifyActivityAboutGeo(GeoLocation geo) {

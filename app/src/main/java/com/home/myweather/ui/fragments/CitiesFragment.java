@@ -45,7 +45,7 @@ public class CitiesFragment extends Fragment {
 
         rvCities.setLayoutManager(new LinearLayoutManager(requireContext()));
         
-        adapter = new FavoriteCitiesAdapter(citiesManager.getCities(), new FavoriteCitiesAdapter.OnCityClickListener() {
+        adapter = new FavoriteCitiesAdapter(new FavoriteCitiesAdapter.OnCityClickListener() {
             @Override
             public void onCityClick(String cityName) {
                 onFavoriteCityClick(cityName);
@@ -92,7 +92,7 @@ public class CitiesFragment extends Fragment {
         } else {
             rvCities.setVisibility(View.VISIBLE);
             tvEmpty.setVisibility(View.GONE);
-            adapter.updateCities(cities);
+            adapter.submitList(cities);
         }
     }
 

@@ -20,12 +20,10 @@ import java.util.List;
 import java.util.Locale;
 
 import com.home.myweather.R;
-import com.home.myweather.helpers.UiController;
 import com.home.myweather.data.repository.WeatherRepository;
+import com.home.myweather.data.repository.ForecastCache;
 import com.home.myweather.data.model.ForecastResponse;
 import com.home.myweather.data.model.ForecastItem;
-import com.home.myweather.ui.adapters.HourlyAdapter;
-import com.home.myweather.utils.WeatherFormatter;
 import com.home.myweather.ui.adapters.DailyAdapter;
 import com.home.myweather.data.model.GeoLocation;
 import com.home.myweather.data.model.DailyData;
@@ -83,7 +81,7 @@ public class ForecastFragment extends Fragment {
         }
 
         isViewCreated = true;
-        
+
         if (pendingGeo != null) {
             setGeoLocation(pendingGeo);
             pendingGeo = null;
@@ -100,9 +98,6 @@ public class ForecastFragment extends Fragment {
             return;
         }
 
-        boolean sameGeo = currentGeo != null
-                && Double.compare(currentGeo.lat, geo.lat) == 0
-                && Double.compare(currentGeo.lon, geo.lon) == 0;
         currentGeo = geo;
         updateCityTitle();
 
@@ -123,7 +118,7 @@ public class ForecastFragment extends Fragment {
     private void showCachedDays() {
         updateCityTitle();
         showList();
-        dailyAdapter.setDays(cachedDays);
+        dailyAdapter.submitList(new ArrayList<>(cachedDays));
     }
 
     private void updateCityTitle() {
@@ -142,14 +137,22 @@ public class ForecastFragment extends Fragment {
     }
 
     private void loadForecast(double lat, double lon) {
+        List<ForecastItem> sharedCache = ForecastCache.get(lat, lon);
+        if (sharedCache != null) {
+            cachedDays = new ArrayList<>(groupByDay(sharedCache));
+            dailyAdapter.submitList(new ArrayList<>(cachedDays));
+            return;
+        }
+
         weatherRepository.fetchForecast(lat, lon, new WeatherRepository.ForecastCallback() {
             @Override
             public void onSuccess(ForecastResponse forecast) {
                 if (isAdded() && getActivity() != null && !getActivity().isDestroyed()) {
                     requireActivity().runOnUiThread(() -> {
                         List<ForecastItem> source = forecast != null ? forecast.list : null;
+                        ForecastCache.put(lat, lon, source);
                         cachedDays = new ArrayList<>(groupByDay(source));
-                        dailyAdapter.setDays(cachedDays);
+                        dailyAdapter.submitList(new ArrayList<>(cachedDays));
                     });
                 }
             }

@@ -1,7 +1,11 @@
 package com.home.myweather.ui.fragments;
 
 import android.annotation.SuppressLint;
+import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,6 +20,9 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.home.myweather.BuildConfig;
 import com.home.myweather.MainActivity;
 import com.home.myweather.R;
+import com.home.myweather.data.model.WeatherResponse;
+import com.home.myweather.data.network.RetrofitClient;
+import com.home.myweather.data.network.WeatherApiService;
 import com.home.myweather.utils.WeatherTileLayer;
 
 import org.maplibre.android.MapLibre;
@@ -26,39 +33,56 @@ import org.maplibre.android.maps.MapLibreMap;
 import org.maplibre.android.maps.MapView;
 import org.maplibre.android.maps.OnMapReadyCallback;
 import org.maplibre.android.maps.Style;
+import org.maplibre.android.plugins.annotation.Symbol;
+import org.maplibre.android.plugins.annotation.SymbolManager;
+import org.maplibre.android.plugins.annotation.SymbolOptions;
+import org.maplibre.android.style.layers.PropertyFactory;
 import org.maplibre.android.style.layers.RasterLayer;
 import org.maplibre.android.style.sources.RasterSource;
 import org.maplibre.android.style.sources.TileSet;
 
-/**
- * MapFragment — карта погоды на базе MapLibre + OpenStreetMap + OWM тайлы.
- *
- * Возможности:
- *  - OSM базовый слой
- *  - Погодные слои: температура, осадки, облака, ветер
- *  - Переключение слоёв кнопками внизу
- *  - Текущее местоположение (через MainActivity.requestGeoLocation)
- *  - Масштабирование и жесты (встроено в MapLibre)
- */
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 public class MapFragment extends Fragment implements OnMapReadyCallback {
 
-    // Координаты по умолчанию (Москва)
     private static final double DEFAULT_LAT  = 55.751244;
     private static final double DEFAULT_LON  = 37.618423;
     private static final double DEFAULT_ZOOM = 5.0;
-
-    // OSM стиль
     private static final String OSM_STYLE_URL =
             "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
+    private static final String TEMP_ICON_ID = "temp_label_icon";
+
+    private static final double[][] CITIES = {
+            {55.751244, 37.618423},
+            {59.939095, 30.315868},
+            {56.838011, 60.597474},
+            {43.115542, 131.885495},
+            {51.660781, 39.200296},
+            {51.768205, 55.096903},
+            {54.989342, 82.904632},
+            {53.195873, 50.100193},
+            {48.708048, 44.513916},
+            {55.030199, 82.920430},
+    };
 
     private MapView          mapView;
     private MapLibreMap      mapLibreMap;
-    private WeatherTileLayer.Layer activeLayer = null; // null = нет OWM слоя
+    private WeatherTileLayer.Layer activeLayer = null;
+    private SymbolManager    symbolManager;
+    private final List<Symbol> tempSymbols = new ArrayList<>();
+    private ExecutorService  executor;
+    private final Handler    mainHandler = new Handler(Looper.getMainLooper());
 
-    // Кнопки слоёв
     private TextView btnNone, btnTemp, btnPrecip, btnClouds, btnWind;
-
-    // Последнее известное местоположение
     private double lastLat = DEFAULT_LAT;
     private double lastLon = DEFAULT_LON;
 
@@ -78,8 +102,6 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
 
         return v;
     }
-
-    // ── Инициализация кнопок ────────────────────────────────────────────
 
     private void initLayerButtons(View v) {
         btnNone   = v.findViewById(R.id.btn_layer_none);
@@ -104,22 +126,24 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
         });
     }
 
-    // ── OnMapReadyCallback ───────────────────────────────────────────────
-
     @Override
     public void onMapReady(@NonNull MapLibreMap map) {
         mapLibreMap = map;
 
-        // Загружаем OSM стиль
         map.setStyle(new Style.Builder().fromUri(OSM_STYLE_URL), style -> {
-            // Стиль загружен — можно добавлять слои
-            // Если есть активный слой (после поворота) — восстанавливаем
+            symbolManager = new SymbolManager(mapView, map, style);
+            symbolManager.setIconAllowOverlap(true);
+            symbolManager.setTextAllowOverlap(true);
+
             if (activeLayer != null) {
-                addOWMLayer(style, activeLayer);
+                if (activeLayer == WeatherTileLayer.Layer.TEMPERATURE) {
+                    loadTemperatureMarkers();
+                } else {
+                    addOWMLayer(style, activeLayer);
+                }
             }
         });
 
-        // Позиция камеры по умолчанию
         map.moveCamera(CameraUpdateFactory.newCameraPosition(
                 new CameraPosition.Builder()
                         .target(new LatLng(lastLat, lastLon))
@@ -127,13 +151,10 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
                         .build()
         ));
 
-        // Включаем жесты (по умолчанию в MapLibre уже включены)
         map.getUiSettings().setAllGesturesEnabled(true);
         map.getUiSettings().setCompassEnabled(true);
         map.getUiSettings().setAttributionEnabled(true);
     }
-
-    // ── Переключение слоёв ───────────────────────────────────────────────
 
     private void switchLayer(@Nullable WeatherTileLayer.Layer newLayer) {
         activeLayer = newLayer;
@@ -143,13 +164,16 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
         Style style = mapLibreMap.getStyle();
         if (style == null) return;
 
-        // Удаляем все OWM слои
         for (WeatherTileLayer.Layer l : WeatherTileLayer.Layer.values()) {
-            removeOWMLayer(style, l);
+            if (l != WeatherTileLayer.Layer.TEMPERATURE) {
+                removeOWMLayer(style, l);
+            }
         }
+        clearTemperatureMarkers();
 
-        // Добавляем новый (если выбран)
-        if (newLayer != null) {
+        if (newLayer == WeatherTileLayer.Layer.TEMPERATURE) {
+            loadTemperatureMarkers();
+        } else if (newLayer != null) {
             addOWMLayer(style, newLayer);
         }
     }
@@ -165,7 +189,6 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
         String layerId  = WeatherTileLayer.layerId(layer);
         String tileUrl  = WeatherTileLayer.tileUrl(layer, apiKey);
 
-        // Источник ещё не добавлен?
         if (style.getSource(sourceId) == null) {
             TileSet tileSet = new TileSet("2.2.0", tileUrl);
             tileSet.setMaxZoom(12f);
@@ -174,12 +197,11 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
             style.addSource(source);
         }
 
-        // Слой ещё не добавлен?
         if (style.getLayer(layerId) == null) {
+            float opacity = (layer == WeatherTileLayer.Layer.CLOUDS
+                    || layer == WeatherTileLayer.Layer.PRECIPITATION) ? 0.95f : 0.8f;
             RasterLayer rasterLayer = new RasterLayer(layerId, sourceId);
-            rasterLayer.setProperties(
-                    org.maplibre.android.style.layers.PropertyFactory.rasterOpacity(0.7f)
-            );
+            rasterLayer.setProperties(PropertyFactory.rasterOpacity(opacity));
             style.addLayer(rasterLayer);
         }
     }
@@ -187,15 +209,110 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
     private void removeOWMLayer(@NonNull Style style, @NonNull WeatherTileLayer.Layer layer) {
         String layerId  = WeatherTileLayer.layerId(layer);
         String sourceId = WeatherTileLayer.sourceId(layer);
-        if (style.getLayer(layerId) != null) {
-            style.removeLayer(layerId);
-        }
-        if (style.getSource(sourceId) != null) {
-            style.removeSource(sourceId);
-        }
+        if (style.getLayer(layerId) != null)   style.removeLayer(layerId);
+        if (style.getSource(sourceId) != null) style.removeSource(sourceId);
     }
 
-    // ── Подсветка активной кнопки ────────────────────────────────────────
+    private void loadTemperatureMarkers() {
+        String apiKey = BuildConfig.OPENWEATHER_API_KEY;
+        if (apiKey == null || apiKey.isEmpty() || symbolManager == null) return;
+
+        if (executor == null || executor.isShutdown()) {
+            executor = Executors.newFixedThreadPool(4);
+        }
+
+        executor.execute(() -> {
+            CountDownLatch latch = new CountDownLatch(CITIES.length);
+            List<double[]> results = Collections.synchronizedList(new ArrayList<>());
+
+            // Исправлено: RetrofitClient.getInstance().getApiService()
+            WeatherApiService service = RetrofitClient.getInstance().getApiService();
+
+            for (double[] city : CITIES) {
+                double lat = city[0];
+                double lon = city[1];
+
+                Call<WeatherResponse> call = service.getCurrentWeather(
+                        lat, lon, apiKey, "metric", "ru"
+                );
+
+                call.enqueue(new Callback<WeatherResponse>() {
+                    @Override
+                    public void onResponse(@NonNull Call<WeatherResponse> call,
+                                           @NonNull Response<WeatherResponse> response) {
+                        try {
+                            if (response.isSuccessful() && response.body() != null) {
+                                double temp = response.body().getMain().getTemp();
+                                results.add(new double[]{lat, lon, temp});
+                            }
+                        } finally {
+                            latch.countDown();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(@NonNull Call<WeatherResponse> call,
+                                          @NonNull Throwable t) {
+                        latch.countDown();
+                    }
+                });
+            }
+
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+
+            mainHandler.post(() -> {
+                if (!isAdded() || symbolManager == null) return;
+                clearTemperatureMarkers();
+
+                Style style = mapLibreMap != null ? mapLibreMap.getStyle() : null;
+                if (style == null) return;
+
+                if (style.getImage(TEMP_ICON_ID) == null) {
+                    style.addImage(TEMP_ICON_ID, createTransparentBitmap());
+                }
+
+                for (double[] r : results) {
+                    String tempText = String.format("%.0f°C", r[2]);
+                    SymbolOptions opts = new SymbolOptions()
+                            .withLatLng(new LatLng(r[0], r[1]))
+                            .withIconImage(TEMP_ICON_ID)
+                            .withTextField(tempText)
+                            .withTextSize(14f)
+                            .withTextColor(tempColor(r[2]))
+                            .withTextHaloColor("rgba(255,255,255,1)")
+                            .withTextHaloWidth(2f)
+                            .withTextOffset(new Float[]{0f, 0f});
+                    tempSymbols.add(symbolManager.create(opts));
+                }
+            });
+        });
+    }
+
+    private String tempColor(double temp) {
+        if (temp <= 0)  return "rgba(50,120,220,1)";
+        if (temp <= 10) return "rgba(80,180,180,1)";
+        if (temp <= 20) return "rgba(60,160,60,1)";
+        if (temp <= 28) return "rgba(220,150,0,1)";
+        return "rgba(210,50,30,1)";
+    }
+
+    private Bitmap createTransparentBitmap() {
+        Bitmap bmp = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+        bmp.eraseColor(Color.TRANSPARENT);
+        return bmp;
+    }
+
+    private void clearTemperatureMarkers() {
+        if (symbolManager != null && !tempSymbols.isEmpty()) {
+            symbolManager.delete(tempSymbols);
+            tempSymbols.clear();
+        }
+    }
 
     private void updateButtonStates() {
         setActive(btnNone,   activeLayer == null);
@@ -212,8 +329,6 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
                 : R.drawable.layer_btn_inactive);
     }
 
-    // ── Публичный метод: переместить карту к местоположению ─────────────
-
     @SuppressLint("MissingPermission")
     public void moveToLocation(double lat, double lon) {
         lastLat = lat;
@@ -226,8 +341,6 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
                         .build()
         ), 800);
     }
-
-    // ── Жизненный цикл MapView ───────────────────────────────────────────
 
     @Override public void onStart()   { super.onStart();   mapView.onStart();   }
     @Override public void onResume()  { super.onResume();  mapView.onResume();  }
@@ -244,6 +357,10 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
     public void onDestroyView() {
         super.onDestroyView();
         mapView.onDestroy();
+        if (executor != null && !executor.isShutdown()) {
+            executor.shutdownNow();
+            executor = null;
+        }
     }
 
     @Override
