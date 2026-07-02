@@ -9,11 +9,14 @@ import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.cardview.widget.CardView;
 import androidx.fragment.app.Fragment;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -23,6 +26,8 @@ import com.home.myweather.R;
 import com.home.myweather.data.model.WeatherResponse;
 import com.home.myweather.data.network.RetrofitClient;
 import com.home.myweather.data.network.WeatherApiService;
+import com.home.myweather.data.repository.WeatherStorage;
+import com.home.myweather.utils.WeatherIcon;
 import com.home.myweather.utils.WeatherTileLayer;
 
 import org.maplibre.android.MapLibre;
@@ -48,6 +53,7 @@ import retrofit2.Response;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -74,15 +80,26 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
             {55.030199, 82.920430},
     };
 
-    private MapView          mapView;
-    private MapLibreMap      mapLibreMap;
+    private MapView           mapView;
+    private MapLibreMap       mapLibreMap;
     private WeatherTileLayer.Layer activeLayer = null;
-    private SymbolManager    symbolManager;
+    private SymbolManager     symbolManager;
     private final List<Symbol> tempSymbols = new ArrayList<>();
-    private ExecutorService  executor;
-    private final Handler    mainHandler = new Handler(Looper.getMainLooper());
+    private ExecutorService   executor;
+    private final Handler     mainHandler = new Handler(Looper.getMainLooper());
 
+    // Кнопки слоёв
     private TextView btnNone, btnTemp, btnPrecip, btnClouds, btnWind;
+
+    // Карточка погоды
+    private CardView  cardWeatherInfo;
+    private ImageView mapWeatherIcon;
+    private TextView  mapCityName, mapTemp, mapDesc, mapWind, mapHumidity;
+
+    // Легенда
+    private CardView      cardLegend;
+    private LinearLayout  legendContainer;
+
     private double lastLat = DEFAULT_LAT;
     private double lastLon = DEFAULT_LON;
 
@@ -99,6 +116,14 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
 
         initLayerButtons(v);
         initLocationButton(v);
+        initWeatherCard(v);
+        initLegend(v);
+
+        // Показываем сохранённую погоду если есть
+        WeatherStorage storage = new WeatherStorage(requireContext());
+        WeatherResponse saved = storage.loadWeather();
+        if (saved != null) showWeatherCard(saved,
+                storage.loadGeo() != null ? storage.loadGeo().name : null);
 
         return v;
     }
@@ -124,6 +149,21 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
                 ((MainActivity) requireActivity()).requestGeoLocation();
             }
         });
+    }
+
+    private void initWeatherCard(View v) {
+        cardWeatherInfo = v.findViewById(R.id.card_weather_info);
+        mapWeatherIcon  = v.findViewById(R.id.map_weather_icon);
+        mapCityName     = v.findViewById(R.id.map_city_name);
+        mapTemp         = v.findViewById(R.id.map_temp);
+        mapDesc         = v.findViewById(R.id.map_desc);
+        mapWind         = v.findViewById(R.id.map_wind);
+        mapHumidity     = v.findViewById(R.id.map_humidity);
+    }
+
+    private void initLegend(View v) {
+        cardLegend      = v.findViewById(R.id.card_legend);
+        legendContainer = v.findViewById(R.id.legend_container);
     }
 
     @Override
@@ -154,11 +194,68 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
         map.getUiSettings().setAllGesturesEnabled(true);
         map.getUiSettings().setCompassEnabled(true);
         map.getUiSettings().setAttributionEnabled(true);
+
+        // Клик по карте — показываем погоду в точке
+        map.addOnMapClickListener(point -> {
+            fetchWeatherForPoint(point.getLatitude(), point.getLongitude());
+            return true;
+        });
+    }
+
+    /** Запрашивает погоду для точки на карте и показывает в карточке. */
+    private void fetchWeatherForPoint(double lat, double lon) {
+        String apiKey = BuildConfig.OPENWEATHER_API_KEY;
+        if (apiKey == null || apiKey.isEmpty()) return;
+
+        WeatherApiService service = RetrofitClient.getInstance().getApiService();
+        service.getCurrentWeather(lat, lon, apiKey, "metric", "ru")
+                .enqueue(new Callback<WeatherResponse>() {
+                    @Override
+                    public void onResponse(@NonNull Call<WeatherResponse> call,
+                                           @NonNull Response<WeatherResponse> response) {
+                        if (!isAdded()) return;
+                        if (response.isSuccessful() && response.body() != null) {
+                            requireActivity().runOnUiThread(() ->
+                                    showWeatherCard(response.body(), response.body().getName()));
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(@NonNull Call<WeatherResponse> call,
+                                          @NonNull Throwable t) { /* тихо */ }
+                });
+    }
+
+    /** Заполняет и показывает карточку погоды. */
+    private void showWeatherCard(WeatherResponse w, String cityName) {
+        if (w == null || w.getMain() == null || cardWeatherInfo == null) return;
+
+        if (cityName != null && !cityName.isEmpty()) {
+            mapCityName.setText(cityName);
+        } else {
+            mapCityName.setVisibility(View.GONE);
+        }
+
+        mapTemp.setText(String.format(Locale.US, "%.0f°C", w.getMain().getTemp()));
+
+        WeatherResponse.WeatherCondition[] wc = w.getWeather();
+        if (wc != null && wc.length > 0 && wc[0] != null) {
+            mapDesc.setText(wc[0].getDescription() != null ? wc[0].getDescription() : "");
+            mapWeatherIcon.setImageResource(WeatherIcon.getResId(wc[0].getIcon()));
+        }
+
+        if (w.getWind() != null) {
+            mapWind.setText("💨 " + String.format(Locale.US, "%.1f м/с", w.getWind().getSpeed()));
+        }
+        mapHumidity.setText("💧 " + w.getMain().getHumidity() + "%");
+
+        cardWeatherInfo.setVisibility(View.VISIBLE);
     }
 
     private void switchLayer(@Nullable WeatherTileLayer.Layer newLayer) {
         activeLayer = newLayer;
         updateButtonStates();
+        updateLegend(newLayer);
 
         if (mapLibreMap == null) return;
         Style style = mapLibreMap.getStyle();
@@ -178,12 +275,70 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
         }
     }
 
-    private void addOWMLayer(@NonNull Style style, @NonNull WeatherTileLayer.Layer layer) {
-        String apiKey = BuildConfig.OPENWEATHER_API_KEY;
-        if (apiKey == null || apiKey.isEmpty()) {
-            Toast.makeText(getContext(), "API ключ OWM не найден", Toast.LENGTH_SHORT).show();
+    private void updateLegend(@Nullable WeatherTileLayer.Layer layer) {
+        if (cardLegend == null || legendContainer == null) return;
+        legendContainer.removeAllViews();
+
+        if (layer == null || layer == WeatherTileLayer.Layer.TEMPERATURE) {
+            cardLegend.setVisibility(View.GONE);
             return;
         }
+
+        String[][] entries = legendEntries(layer);
+        for (String[] entry : entries) {
+            LinearLayout row = new LinearLayout(requireContext());
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setPadding(0, 2, 0, 2);
+
+            View dot = new View(requireContext());
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(16, 16);
+            lp.setMarginEnd(8);
+            dot.setLayoutParams(lp);
+            dot.setBackgroundColor(Color.parseColor(entry[0]));
+
+            TextView label = new TextView(requireContext());
+            label.setText(entry[1]);
+            label.setTextSize(10f);
+            label.setTextColor(Color.parseColor("#1E293B"));
+
+            row.addView(dot);
+            row.addView(label);
+            legendContainer.addView(row);
+        }
+        cardLegend.setVisibility(View.VISIBLE);
+    }
+
+    private String[][] legendEntries(WeatherTileLayer.Layer layer) {
+        switch (layer) {
+            case PRECIPITATION:
+                return new String[][]{
+                        {"#B3E5FC", "лёгкий дождь"},
+                        {"#4FC3F7", "умеренный"},
+                        {"#0277BD", "сильный"},
+                        {"#6A1B9A", "очень сильный"},
+                };
+            case CLOUDS:
+                return new String[][]{
+                        {"#ECEFF1", "ясно"},
+                        {"#B0BEC5", "малооблачно"},
+                        {"#607D8B", "облачно"},
+                        {"#263238", "пасмурно"},
+                };
+            case WIND:
+                return new String[][]{
+                        {"#E8F5E9", "штиль"},
+                        {"#81C784", "слабый"},
+                        {"#F9A825", "умеренный"},
+                        {"#E53935", "сильный"},
+                };
+            default:
+                return new String[0][];
+        }
+    }
+
+    private void addOWMLayer(@NonNull Style style, @NonNull WeatherTileLayer.Layer layer) {
+        String apiKey = BuildConfig.OPENWEATHER_API_KEY;
+        if (apiKey == null || apiKey.isEmpty()) return;
 
         String sourceId = WeatherTileLayer.sourceId(layer);
         String layerId  = WeatherTileLayer.layerId(layer);
@@ -198,8 +353,14 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
         }
 
         if (style.getLayer(layerId) == null) {
-            float opacity = (layer == WeatherTileLayer.Layer.CLOUDS
-                    || layer == WeatherTileLayer.Layer.PRECIPITATION) ? 0.95f : 0.8f;
+            float opacity;
+            if (layer == WeatherTileLayer.Layer.CLOUDS) {
+                opacity = 1.0f; // make clouds fully visible
+            } else if (layer == WeatherTileLayer.Layer.PRECIPITATION) {
+                opacity = 0.95f;
+            } else {
+                opacity = 0.8f;
+            }
             RasterLayer rasterLayer = new RasterLayer(layerId, sourceId);
             rasterLayer.setProperties(PropertyFactory.rasterOpacity(opacity));
             style.addLayer(rasterLayer);
@@ -224,45 +385,31 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
         executor.execute(() -> {
             CountDownLatch latch = new CountDownLatch(CITIES.length);
             List<double[]> results = Collections.synchronizedList(new ArrayList<>());
-
-            // Исправлено: RetrofitClient.getInstance().getApiService()
             WeatherApiService service = RetrofitClient.getInstance().getApiService();
 
             for (double[] city : CITIES) {
                 double lat = city[0];
                 double lon = city[1];
-
-                Call<WeatherResponse> call = service.getCurrentWeather(
-                        lat, lon, apiKey, "metric", "ru"
-                );
-
-                call.enqueue(new Callback<WeatherResponse>() {
-                    @Override
-                    public void onResponse(@NonNull Call<WeatherResponse> call,
-                                           @NonNull Response<WeatherResponse> response) {
-                        try {
-                            if (response.isSuccessful() && response.body() != null) {
-                                double temp = response.body().getMain().getTemp();
-                                results.add(new double[]{lat, lon, temp});
+                service.getCurrentWeather(lat, lon, apiKey, "metric", "ru")
+                        .enqueue(new Callback<WeatherResponse>() {
+                            @Override
+                            public void onResponse(@NonNull Call<WeatherResponse> call,
+                                                   @NonNull Response<WeatherResponse> r) {
+                                try {
+                                    if (r.isSuccessful() && r.body() != null) {
+                                        results.add(new double[]{lat, lon, r.body().getMain().getTemp()});
+                                    }
+                                } finally { latch.countDown(); }
                             }
-                        } finally {
-                            latch.countDown();
-                        }
-                    }
 
-                    @Override
-                    public void onFailure(@NonNull Call<WeatherResponse> call,
-                                          @NonNull Throwable t) {
-                        latch.countDown();
-                    }
-                });
+                            @Override
+                            public void onFailure(@NonNull Call<WeatherResponse> call,
+                                                  @NonNull Throwable t) { latch.countDown(); }
+                        });
             }
 
-            try {
-                latch.await();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return;
+            try { latch.await(); } catch (InterruptedException e) {
+                Thread.currentThread().interrupt(); return;
             }
 
             mainHandler.post(() -> {
@@ -277,17 +424,16 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
                 }
 
                 for (double[] r : results) {
-                    String tempText = String.format("%.0f°C", r[2]);
-                    SymbolOptions opts = new SymbolOptions()
+                    String text = String.format(Locale.US, "%.0f°C", r[2]);
+                    tempSymbols.add(symbolManager.create(new SymbolOptions()
                             .withLatLng(new LatLng(r[0], r[1]))
                             .withIconImage(TEMP_ICON_ID)
-                            .withTextField(tempText)
+                            .withTextField(text)
                             .withTextSize(14f)
                             .withTextColor(tempColor(r[2]))
                             .withTextHaloColor("rgba(255,255,255,1)")
                             .withTextHaloWidth(2f)
-                            .withTextOffset(new Float[]{0f, 0f});
-                    tempSymbols.add(symbolManager.create(opts));
+                            .withTextOffset(new Float[]{0f, 0f})));
                 }
             });
         });
@@ -324,9 +470,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
 
     private void setActive(TextView btn, boolean active) {
         if (btn == null) return;
-        btn.setBackgroundResource(active
-                ? R.drawable.layer_btn_active
-                : R.drawable.layer_btn_inactive);
+        btn.setBackgroundResource(active ? R.drawable.layer_btn_active : R.drawable.layer_btn_inactive);
     }
 
     @SuppressLint("MissingPermission")
@@ -338,8 +482,12 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
                 new CameraPosition.Builder()
                         .target(new LatLng(lat, lon))
                         .zoom(10.0)
-                        .build()
-        ), 800);
+                        .build()), 800);
+    }
+
+    // Обновить карточку погоды снаружи (из MainActivity)
+    public void updateWeatherCard(WeatherResponse w, String cityName) {
+        if (isAdded()) showWeatherCard(w, cityName);
     }
 
     @Override public void onStart()   { super.onStart();   mapView.onStart();   }

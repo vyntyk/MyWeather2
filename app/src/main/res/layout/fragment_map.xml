@@ -4,120 +4,237 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- MapLibre MapView занимает весь экран -->
+    <!-- Карта занимает весь экран -->
     <org.maplibre.android.maps.MapView
         android:id="@+id/map_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent" >
 
+    </org.maplibre.android.maps.MapView>
+
+    <!-- Кнопка «Моё местоположение» -->
+
+    <!-- Информационная карточка погоды (вверху) -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/card_weather_info"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:layout_margin="12dp"
+        android:layout_marginTop="16dp"
+        android:visibility="gone"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="6dp"
+        app:cardBackgroundColor="#F0FFFFFF">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="10dp">
+
+            <ImageView
+                android:id="@+id/map_weather_icon"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:contentDescription="иконка" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginStart="8dp">
+
+                <TextView
+                    android:id="@+id/map_city_name"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="#1E293B" />
+
+                <TextView
+                    android:id="@+id/map_temp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:textColor="#1E293B" />
+
+                <TextView
+                    android:id="@+id/map_desc"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="11sp"
+                    android:textColor="#64748B" />
+            </LinearLayout>
+
+            <!-- Мини-блок деталей -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginStart="16dp">
+
+                <TextView
+                    android:id="@+id/map_wind"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="11sp"
+                    android:textColor="#475569"
+                    android:drawablePadding="4dp" />
+
+                <TextView
+                    android:id="@+id/map_humidity"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textSize="11sp"
+                    android:textColor="#475569" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Панель переключения слоёв и кнопка геолокации в ConstraintLayout -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <HorizontalScrollView
+            android:id="@+id/hsv_layer"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            android:layout_marginBottom="8dp"
+            android:scrollbars="none"
+            android:paddingLeft="12dp"
+            android:paddingRight="12dp">
+
+            <LinearLayout
+                android:id="@+id/layer_panel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/btn_layer_none"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/layer_btn_active"
+                    android:gravity="center"
+                    android:paddingLeft="14dp"
+                    android:paddingRight="14dp"
+                    android:text="🗺 OSM"
+                    android:textColor="#1E293B"
+                    android:textSize="13sp"
+                    android:fontFamily="sans-serif-medium" />
+
+                <TextView
+                    android:id="@+id/btn_layer_temp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/layer_btn_inactive"
+                    android:gravity="center"
+                    android:paddingLeft="14dp"
+                    android:paddingRight="14dp"
+                    android:text="🌡 Температура"
+                    android:textColor="#1E293B"
+                    android:textSize="13sp"
+                    android:fontFamily="sans-serif-medium" />
+
+                <TextView
+                    android:id="@+id/btn_layer_precipitation"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:visibility="visible"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/layer_btn_inactive"
+                    android:gravity="center"
+                    android:paddingLeft="14dp"
+                    android:paddingRight="14dp"
+                    android:text="🌧 Осадки"
+                    android:textColor="#1E293B"
+                    android:textSize="13sp"
+                    android:fontFamily="sans-serif-medium" />
+
+                <TextView
+                    android:id="@+id/btn_layer_clouds"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:visibility="visible"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/layer_btn_inactive"
+                    android:gravity="center"
+                    android:paddingLeft="14dp"
+                    android:paddingRight="14dp"
+                    android:text="☁ Облака"
+                    android:textColor="#1E293B"
+                    android:textSize="13sp"
+                    android:fontFamily="sans-serif-medium" />
+
+                <TextView
+                    android:id="@+id/btn_layer_wind"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:visibility="visible"
+                    android:background="@drawable/layer_btn_inactive"
+                    android:gravity="center"
+                    android:paddingLeft="14dp"
+                    android:paddingRight="14dp"
+                    android:text="💨 Ветер"
+                    android:textColor="#1E293B"
+                    android:textSize="13sp"
+                    android:fontFamily="sans-serif-medium" />
+
+            </LinearLayout>
+        </HorizontalScrollView>
+
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/fab_my_location"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="bottom|end"
-            android:layout_margin="16dp"
-            android:layout_marginBottom="110dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/hsv_layer"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="30dp"
             android:contentDescription="Моё местоположение"
             android:src="@android:drawable/ic_menu_mylocation"
             app:backgroundTint="#FFFFFF"
             app:elevation="4dp"
             app:tint="#3B82F6" />
-    </org.maplibre.android.maps.MapView>
 
-    <!-- Кнопка «Моё местоположение» -->
-
-    <!-- Панель переключения слоёв (снизу по центру) -->
-    <HorizontalScrollView
-        android:layout_width="match_parent"
+    <androidx.cardview.widget.CardView
+        android:id="@+id/card_legend"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        android:layout_marginBottom="8dp"
-        android:scrollbars="none"
-        android:paddingLeft="12dp"
-        android:paddingRight="12dp">
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/hsv_layer"
+        android:layout_margin="16dp"
+        android:layout_marginBottom="30dp"
+        android:visibility="gone"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="4dp"
+        app:cardBackgroundColor="#F0FFFFFF">
 
         <LinearLayout
-            android:id="@+id/layer_panel"
+            android:id="@+id/legend_container"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="10dp" />
 
-            <!-- Кнопка «Нет слоя» -->
-            <TextView
-                android:id="@+id/btn_layer_none"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:layout_marginEnd="8dp"
-                android:background="@drawable/layer_btn_active"
-                android:gravity="center"
-                android:paddingLeft="14dp"
-                android:paddingRight="14dp"
-                android:text="🗺 OSM"
-                android:textColor="#1E293B"
-                android:textSize="13sp"
-                android:fontFamily="sans-serif-medium" />
+    </androidx.cardview.widget.CardView>
 
-            <!-- Температура -->
-            <TextView
-                android:id="@+id/btn_layer_temp"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:layout_marginEnd="8dp"
-                android:background="@drawable/layer_btn_inactive"
-                android:gravity="center"
-                android:paddingLeft="14dp"
-                android:paddingRight="14dp"
-                android:text="🌡 Температура"
-                android:textColor="#1E293B"
-                android:textSize="13sp"
-                android:fontFamily="sans-serif-medium" />
-
-            <!-- Осадки -->
-            <TextView
-                android:id="@+id/btn_layer_precipitation"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:layout_marginEnd="8dp"
-                android:background="@drawable/layer_btn_inactive"
-                android:gravity="center"
-                android:paddingLeft="14dp"
-                android:paddingRight="14dp"
-                android:text="🌧 Осадки"
-                android:textColor="#1E293B"
-                android:textSize="13sp"
-                android:fontFamily="sans-serif-medium" />
-
-            <!-- Облака -->
-            <TextView
-                android:id="@+id/btn_layer_clouds"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:layout_marginEnd="8dp"
-                android:background="@drawable/layer_btn_inactive"
-                android:gravity="center"
-                android:paddingLeft="14dp"
-                android:paddingRight="14dp"
-                android:text="☁ Облака"
-                android:textColor="#1E293B"
-                android:textSize="13sp"
-                android:fontFamily="sans-serif-medium" />
-
-            <!-- Ветер -->
-            <TextView
-                android:id="@+id/btn_layer_wind"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:background="@drawable/layer_btn_inactive"
-                android:gravity="center"
-                android:paddingLeft="14dp"
-                android:paddingRight="14dp"
-                android:text="💨 Ветер"
-                android:textColor="#1E293B"
-                android:textSize="13sp"
-                android:fontFamily="sans-serif-medium" />
-
-        </LinearLayout>
-    </HorizontalScrollView>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
 </FrameLayout>
