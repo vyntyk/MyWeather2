@@ -213,10 +213,13 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
                     @Override
                     public void onResponse(@NonNull Call<WeatherResponse> call,
                                            @NonNull Response<WeatherResponse> response) {
-                        if (!isAdded()) return;
                         if (response.isSuccessful() && response.body() != null) {
-                            requireActivity().runOnUiThread(() ->
-                                    showWeatherCard(response.body(), response.body().getName()));
+                            // Post to main handler and re-check fragment attachment to avoid race with activity/fragment
+                            mainHandler.post(() -> {
+                                if (isAdded()) {
+                                    showWeatherCard(response.body(), response.body().getName());
+                                }
+                            });
                         }
                     }
 
