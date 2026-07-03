@@ -110,6 +110,14 @@ public class MainActivity extends AppCompatActivity {
         });
 
         hideSystemUI();
+
+        // Слушатель для скрытия overlay-контейнера, когда стек фрагментов пуст
+        getSupportFragmentManager().addOnBackStackChangedListener(() -> {
+            if (getSupportFragmentManager().getBackStackEntryCount() == 0) {
+                View c = findViewById(R.id.fragment_container);
+                if (c != null) c.setVisibility(View.GONE);
+            }
+        });
     }
 
     /** Вызывается когда страница стала активной (через свайп или nav). */
@@ -165,9 +173,11 @@ public class MainActivity extends AppCompatActivity {
     public void openDayDetail(DailyData day) {
         getSupportFragmentManager()
                 .beginTransaction()
-                .replace(R.id.view_pager, DayDetailFragment.newInstance(day))
+                .replace(R.id.fragment_container, DayDetailFragment.newInstance(day))
                 .addToBackStack("day_detail")
                 .commit();
+            View container = findViewById(R.id.fragment_container);
+            if (container != null) container.setVisibility(View.VISIBLE);
     }
 
     public void loadWeatherFromFavoriteCity(String cityName) {

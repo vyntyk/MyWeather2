@@ -4,7 +4,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:background="@color/bg_primary">
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_back"
@@ -12,7 +13,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:text="@string/back_button"
-        android:textColor="@color/black"
+        android:textColor="@color/text_primary"
         app:cornerRadius="12dp" />
 
     <TextView
@@ -22,7 +23,7 @@
         android:layout_marginTop="12dp"
         android:fontFamily="sans-serif"
         android:textAlignment="center"
-        android:textColor="@color/black"
+        android:textColor="@color/text_primary"
         android:textSize="24sp"
         android:textStyle="bold" />
 
@@ -37,7 +38,7 @@
             android:layout_height="wrap_content"
             android:fontFamily="sans-serif"
             android:lineSpacingMultiplier="1.2"
-            android:textColor="@color/black"
+            android:textColor="@color/text_primary"
             android:textSize="16sp" />
     </ScrollView>
 
