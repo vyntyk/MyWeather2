@@ -2,12 +2,6 @@ plugins {
     id 'com.android.application'
 }
 
-def localProperties = new Properties()
-def localPropertiesFile = rootProject.file('local.properties')
-if (localPropertiesFile.exists()) {
-    localPropertiesFile.withInputStream { localProperties.load(it) }
-}
-
 android {
     namespace 'com.home.myweather'
     compileSdk 36
@@ -21,9 +15,6 @@ android {
         versionName "2.1"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-
-        buildConfigField "String", "OPENWEATHER_API_KEY",
-                "\"${localProperties.getProperty('OPENWEATHER_API_KEY', '')}\""
     }
 
     buildFeatures {
