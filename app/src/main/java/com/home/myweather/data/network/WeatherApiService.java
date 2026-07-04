@@ -4,6 +4,7 @@ import retrofit2.Call;
 import retrofit2.http.GET;
 import retrofit2.http.Query;
 import com.home.myweather.data.model.OpenMeteoForecastResponse;
+import com.home.myweather.data.model.WeatherResponse;
 
 /**
  * Retrofit-интерфейс для Open-Meteo Forecast API.
@@ -30,5 +31,18 @@ public interface WeatherApiService {
             @Query("wind_speed_unit") String windSpeedUnit,
             @Query("timezone")        String timezone,
             @Query("forecast_days")   int    forecastDays
+    );
+
+    /**
+     * GET https://api.openweathermap.org/data/2.5/weather
+     *   ?lat={lat}&lon={lon}&appid={apiKey}&units={units}&lang={lang}
+     */
+    @GET("data/2.5/weather")
+    Call<WeatherResponse> getCurrentWeather(
+            @Query("lat")      double latitude,
+            @Query("lon")      double longitude,
+            @Query("appid")    String apiKey,
+            @Query("units")    String units,
+            @Query("lang")     String lang
     );
 }
