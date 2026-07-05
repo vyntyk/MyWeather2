@@ -1,5 +1,7 @@
 package com.home.myweather.ui.viewmodel
 
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.home.myweather.data.model.GeoLocation
@@ -7,7 +9,6 @@ import com.home.myweather.data.model.ForecastResponse
 import com.home.myweather.data.repository.WeatherRepository
 import com.home.myweather.utils.ForecastGrouper
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -20,8 +21,8 @@ class ForecastViewModel @Inject constructor(
     private val weatherRepository: WeatherRepository
 ) : ViewModel() {
     
-    private val _uiState = MutableStateFlow<ForecastUiState>(ForecastUiState())
-    val uiState: StateFlow<ForecastUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableLiveData<ForecastUiState>(ForecastUiState())
+    val uiState: LiveData<ForecastUiState> = _uiState
     
     private var currentGeo: GeoLocation? = null
     private val forecastCache = mutableMapOf<String, List<com.home.myweather.data.model.DailyData>>()
@@ -37,11 +38,11 @@ class ForecastViewModel @Inject constructor(
         // Check cache first
         val cached = forecastCache[locationKey]
         if (cached != null) {
-            _uiState.update { it.copy(days = cached, isLoading = false) }
+            _uiState.postValue(ForecastUiState(days = cached, isLoading = false))
             return
         }
         
-        _uiState.update { it.copy(isLoading = true, error = null) }
+        _uiState.postValue(ForecastUiState(isLoading = true, error = null))
         
         viewModelScope.launch {
             weatherRepository.fetchForecast(lat, lon, object : WeatherRepository.ForecastCallback {
@@ -52,22 +53,22 @@ class ForecastViewModel @Inject constructor(
                     // Cache the result
                     forecastCache[locationKey] = grouped
                     
-                    _uiState.update {
-                        it.copy(
+                    _uiState.postValue(
+                        ForecastUiState(
                             days = grouped,
                             isLoading = false,
                             error = null
                         )
-                    }
+                    )
                 }
                 
                 override fun onError(message: String) {
-                    _uiState.update {
-                        it.copy(
+                    _uiState.postValue(
+                        ForecastUiState(
                             isLoading = false,
                             error = message
                         )
-                    }
+                    )
                 }
             })
         }

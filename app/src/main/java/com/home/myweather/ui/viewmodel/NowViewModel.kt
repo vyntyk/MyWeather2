@@ -1,5 +1,7 @@
 package com.home.myweather.ui.viewmodel
 
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.home.myweather.data.model.ForecastResponse
@@ -20,65 +22,66 @@ class NowViewModel @Inject constructor(
     private val weatherRepository: WeatherRepository
 ) : ViewModel() {
     
-    private val _uiState = MutableStateFlow<WeatherUiState>(WeatherUiState())
-    val uiState: StateFlow<WeatherUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableLiveData<WeatherUiState>(WeatherUiState())
+    val uiState: LiveData<WeatherUiState> = _uiState
     
     var lastGeo: GeoLocation? = null
         private set
     
     fun fetchWeatherByCoords(lat: Double, lon: Double) {
-        _uiState.update { it.copy(isLoading = true, error = null) }
+        _uiState.postValue(WeatherUiState(isLoading = true, error = null))
         
         viewModelScope.launch {
             weatherRepository.fetchWeatherByCoords(lat, lon, object : WeatherRepository.WeatherCallback {
                 override fun onSuccess(weather: WeatherResponse, geo: GeoLocation) {
                     lastGeo = geo
-                    _uiState.update {
-                        it.copy(
+                    _uiState.postValue(
+                        WeatherUiState(
                             weather = weather,
                             geo = geo,
                             isLoading = false,
                             error = null
                         )
-                    }
+                    )
                 }
                 
                 override fun onError(message: String) {
-                    _uiState.update {
-                        it.copy(
+                    _uiState.postValue(
+                        WeatherUiState(
                             isLoading = false,
                             error = message
                         )
-                    }
+                    )
                 }
             })
         }
     }
     
+    @JvmOverloads
     fun fetchWeatherByCity(city: String, country: String? = null) {
-        _uiState.update { it.copy(isLoading = true, error = null) }
+        _uiState.postValue(WeatherUiState(isLoading = true, error = null))
         
         viewModelScope.launch {
             weatherRepository.fetchWeather(city, country, object : WeatherRepository.WeatherCallback {
                 override fun onSuccess(weather: WeatherResponse, geo: GeoLocation) {
                     lastGeo = geo
-                    _uiState.update {
-                        it.copy(
+                    _uiState.postValue(
+                        WeatherUiState(
                             weather = weather,
                             geo = geo,
                             isLoading = false,
                             error = null
                         )
-                    }
+                    )
                 }
                 
                 override fun onError(message: String) {
-                    _uiState.update {
-                        it.copy(
+                    _uiState.postValue(
+                        WeatherUiState(
                             isLoading = false,
                             error = message
                         )
-                    }
+                    )
                 }
             })
         }
@@ -102,6 +105,12 @@ class NowViewModel @Inject constructor(
         lastGeo?.let { geo ->
             fetchWeatherByCoords(geo.lat, geo.lon)
         }
+    }
+    
+    fun getWeatherRepository(): WeatherRepository = weatherRepository
+    
+    fun clearRequests() {
+        weatherRepository.cancelPendingRequests()
     }
 }
 

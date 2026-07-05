@@ -1,5 +1,7 @@
 package com.home.myweather.ui.viewmodel
 
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.home.myweather.data.model.GeoLocation
@@ -8,7 +10,6 @@ import com.home.myweather.data.repository.WeatherRepository
 import com.home.myweather.utils.TemperatureConverter
 import com.home.myweather.utils.WeatherTileLayer
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -21,33 +22,33 @@ class MapViewModel @Inject constructor(
     private val weatherRepository: WeatherRepository
 ) : ViewModel() {
     
-    private val _uiState = MutableStateFlow<MapUiState>(MapUiState())
-    val uiState: StateFlow<MapUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableLiveData<MapUiState>(MapUiState())
+    val uiState: LiveData<MapUiState> = _uiState
     
     private var currentLocation: Pair<Double, Double>? = null
     
     fun moveToLocation(lat: Double, lon: Double) {
         currentLocation = lat to lon
-        _uiState.update {
-            it.copy(
+        _uiState.postValue(
+            MapUiState(
                 centerLat = lat,
                 centerLon = lon
             )
-        }
+        )
     }
     
     fun fetchWeatherForPoint(lat: Double, lon: Double) {
         viewModelScope.launch {
             weatherRepository.fetchWeatherByCoords(lat, lon, object : WeatherRepository.WeatherCallback {
                 override fun onSuccess(weather: WeatherResponse, geo: GeoLocation) {
-                    _uiState.update {
-                        it.copy(
+                    _uiState.postValue(
+                        MapUiState(
                             weather = weather,
                             geo = geo,
                             showWeatherCard = true,
                             cityName = geo.name
                         )
-                    }
+                    )
                 }
                 
                 override fun onError(message: String) {
@@ -58,21 +59,21 @@ class MapViewModel @Inject constructor(
     }
     
     fun showWeatherCard(weather: WeatherResponse, cityName: String?) {
-        _uiState.update {
-            it.copy(
+        _uiState.postValue(
+            MapUiState(
                 weather = weather,
                 cityName = cityName,
                 showWeatherCard = true
             )
-        }
+        )
     }
     
     fun hideWeatherCard() {
-        _uiState.update { it.copy(showWeatherCard = false) }
+        _uiState.postValue(MapUiState(showWeatherCard = false))
     }
     
     fun switchLayer(newLayer: WeatherTileLayer.Layer?) {
-        _uiState.update { it.copy(activeLayer = newLayer) }
+        _uiState.postValue(MapUiState(activeLayer = newLayer))
     }
     
     fun updateLayerButtons() {
@@ -80,7 +81,7 @@ class MapViewModel @Inject constructor(
     }
     
     fun loadTemperatureMarkers(cities: List<Pair<Double, Double>>) {
-        _uiState.update { it.copy(isLoadingMarkers = true) }
+        _uiState.postValue(MapUiState(isLoadingMarkers = true))
         
         viewModelScope.launch {
             // Simulate loading markers
@@ -95,24 +96,24 @@ class MapViewModel @Inject constructor(
                         }
                         completedCount++
                         if (completedCount == cities.size) {
-                            _uiState.update {
-                                it.copy(
+                            _uiState.postValue(
+                                MapUiState(
                                     temperatureMarkers = results,
                                     isLoadingMarkers = false
                                 )
-                            }
+                            )
                         }
                     }
                     
                     override fun onError(message: String) {
                         completedCount++
                         if (completedCount == cities.size) {
-                            _uiState.update {
-                                it.copy(
+                            _uiState.postValue(
+                                MapUiState(
                                     temperatureMarkers = results,
                                     isLoadingMarkers = false
                                 )
-                            }
+                            )
                         }
                     }
                 })
@@ -121,7 +122,7 @@ class MapViewModel @Inject constructor(
     }
     
     fun clearTemperatureMarkers() {
-        _uiState.update { it.copy(temperatureMarkers = emptyList()) }
+        _uiState.postValue(MapUiState(temperatureMarkers = emptyList()))
     }
 }
 

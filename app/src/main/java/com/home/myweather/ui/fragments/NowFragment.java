@@ -15,6 +15,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
@@ -23,19 +24,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.home.myweather.R;
-import com.home.myweather.data.repository.WeatherRepository;
-import com.home.myweather.data.repository.ForecastCache;
-import com.home.myweather.data.repository.WeatherStorage;
+import com.home.myweather.data.model.ForecastItem;
+import com.home.myweather.data.model.GeoLocation;
 import com.home.myweather.data.model.WeatherResponse;
-import com.home.myweather.data.model.ForecastResponse;
+import com.home.myweather.data.repository.ForecastCache;
+import com.home.myweather.data.repository.WeatherRepository;
+import com.home.myweather.data.repository.WeatherStorage;
 import com.home.myweather.utils.AppPreferences;
 import com.home.myweather.utils.ComfortIndex;
 import com.home.myweather.utils.PressureConverter;
 import com.home.myweather.utils.TemperatureConverter;
 import com.home.myweather.utils.WeatherIcon;
 import com.home.myweather.ui.adapters.HourlyAdapter;
-import com.home.myweather.data.model.GeoLocation;
-import com.home.myweather.data.model.ForecastItem;
+import com.home.myweather.ui.viewmodel.NowViewModel;
+import com.home.myweather.ui.viewmodel.WeatherUiState;
 import com.home.myweather.MainActivity;
 import dagger.hilt.android.AndroidEntryPoint;
 import javax.inject.Inject;
@@ -43,9 +45,8 @@ import javax.inject.Inject;
 @AndroidEntryPoint
 public class NowFragment extends Fragment {
 
-    private static final String STATE_WEATHER = "last_weather";
-    private static final String STATE_GEO     = "last_geo";
-    private static final String STATE_HOURLY  = "hourly";
+    private static final String STATE_GEO = "last_geo";
+    private static final String STATE_HOURLY = "hourly";
 
     private SwipeRefreshLayout swipeRefresh;
     private ImageView ivWeatherIcon;
@@ -54,73 +55,85 @@ public class NowFragment extends Fragment {
     private RecyclerView rvHourly;
     private EditText cityField;
 
-    private HourlyAdapter      hourlyAdapter;
-    @Inject
-    WeatherRepository  weatherRepository;
-    private WeatherStorage     weatherStorage;
-    private AppPreferences     appPreferences;
-    private WeatherResponse    lastWeather;
-    private GeoLocation        lastGeo;
-    private ArrayList<ForecastItem> cachedHourly    = new ArrayList<>();
+    private HourlyAdapter hourlyAdapter;
+    private NowViewModel viewModel;
+    private WeatherResponse lastWeather;
+    private GeoLocation lastGeo;
+    private ArrayList<ForecastItem> cachedHourly = new ArrayList<>();
     private double cachedHourlyLat = Double.NaN;
     private double cachedHourlyLon = Double.NaN;
+
+    @Inject
+    AppPreferences appPreferences;
 
     @SuppressLint("MissingInflatedId")
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
-                             @Nullable Bundle savedInstanceState) {
+                             Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.fragment_now, container, false);
 
-        swipeRefresh    = v.findViewById(R.id.swipe_refresh);
-        ivWeatherIcon   = v.findViewById(R.id.tv_weather_icon);
-        tvTemp          = v.findViewById(R.id.tv_temp);
-        tvFeels         = v.findViewById(R.id.tv_feels);
-        tvDesc          = v.findViewById(R.id.tv_desc);
-        tvComfort       = v.findViewById(R.id.tv_comfort);
-        tvWindValue     = v.findViewById(R.id.tv_wind_value);
+        swipeRefresh = v.findViewById(R.id.swipe_refresh);
+        ivWeatherIcon = v.findViewById(R.id.tv_weather_icon);
+        tvTemp = v.findViewById(R.id.tv_temp);
+        tvFeels = v.findViewById(R.id.tv_feels);
+        tvDesc = v.findViewById(R.id.tv_desc);
+        tvComfort = v.findViewById(R.id.tv_comfort);
+        tvWindValue = v.findViewById(R.id.tv_wind_value);
         tvPressureValue = v.findViewById(R.id.tv_pressure_value);
         tvHumidityValue = v.findViewById(R.id.tv_humidity_value);
-        rvHourly        = v.findViewById(R.id.rv_hourly);
-        cityField       = v.findViewById(R.id.user_field);
+        rvHourly = v.findViewById(R.id.rv_hourly);
+        cityField = v.findViewById(R.id.user_field);
 
         hourlyAdapter = new HourlyAdapter(requireContext());
         rvHourly.setLayoutManager(new LinearLayoutManager(requireContext(),
                 LinearLayoutManager.HORIZONTAL, false));
         rvHourly.setAdapter(hourlyAdapter);
 
-        // Hilt will inject weatherRepository automatically
-        weatherStorage    = new WeatherStorage(requireContext());
-        appPreferences    = new AppPreferences(requireContext());
+        viewModel = new ViewModelProvider(this).get(NowViewModel.class);
+
+        // Обновляем UI при изменении состояния
+        viewModel.getUiState().observe(getViewLifecycleOwner(), this::updateUi);
 
         // Pull-to-refresh
         swipeRefresh.setColorSchemeResources(R.color.accent_blue);
-        swipeRefresh.setOnRefreshListener(this::refreshCurrentWeather);
+        swipeRefresh.setOnRefreshListener(() -> {
+            if (lastGeo != null) {
+                viewModel.fetchWeatherByCoords(lastGeo.lat, lastGeo.lon);
+            } else {
+                swipeRefresh.setRefreshing(false);
+            }
+        });
 
         if (savedInstanceState != null) {
-            lastWeather = (WeatherResponse) savedInstanceState.getSerializable(STATE_WEATHER);
-            lastGeo     = (GeoLocation) savedInstanceState.getSerializable(STATE_GEO);
-            ArrayList<ForecastItem> restored =
+            GeoLocation restoredGeo = (GeoLocation) savedInstanceState.getSerializable(STATE_GEO);
+            ArrayList<ForecastItem> restoredHourly =
                     (ArrayList<ForecastItem>) savedInstanceState.getSerializable(STATE_HOURLY);
-            if (restored != null) cachedHourly = restored;
-            if (lastGeo != null && !cachedHourly.isEmpty()) {
-                cachedHourlyLat = lastGeo.lat;
-                cachedHourlyLon = lastGeo.lon;
+            if (restoredGeo != null) {
+                lastGeo = restoredGeo;
+                viewModel.fetchWeatherByCoords(restoredGeo.lat, restoredGeo.lon);
+            }
+            if (restoredHourly != null) {
+                cachedHourly = restoredHourly;
+                hourlyAdapter.submitList(new ArrayList<>(cachedHourly));
             }
         } else {
-            lastWeather  = weatherStorage.loadWeather();
-            lastGeo      = weatherStorage.loadGeo();
-            cachedHourly = weatherStorage.loadHourly();
-            if (lastGeo != null && !cachedHourly.isEmpty()) {
-                cachedHourlyLat = lastGeo.lat;
-                cachedHourlyLon = lastGeo.lon;
+            // Загружаем сохраненную погоду
+            WeatherStorage weatherStorage = new WeatherStorage(requireContext());
+            WeatherResponse savedWeather = weatherStorage.loadWeather();
+            GeoLocation savedGeo = weatherStorage.loadGeo();
+            ArrayList<ForecastItem> savedHourly = weatherStorage.loadHourly();
+            
+            if (savedWeather != null) {
+                lastWeather = savedWeather;
+                updateUi(new WeatherUiState(savedWeather, savedGeo, false, null));
+                cachedHourly = savedHourly != null ? savedHourly : new ArrayList<>();
+                hourlyAdapter.submitList(new ArrayList<>(cachedHourly));
+            }
+            if (savedGeo != null) {
+                lastGeo = savedGeo;
             }
         }
-
-        if (lastWeather != null) showWeather(lastWeather);
-        hourlyAdapter.submitList(new ArrayList<>(cachedHourly));
-
-        if (lastGeo != null) notifyActivityAboutGeo(lastGeo);
 
         v.findViewById(R.id.main_btn).setOnClickListener(vv -> onSearchClick());
         v.findViewById(R.id.geo_btn).setOnClickListener(vv -> onGeoClick());
@@ -128,12 +141,69 @@ public class NowFragment extends Fragment {
         return v;
     }
 
-    /** Повторный запрос для текущей локации (pull-to-refresh). */
-    private void refreshCurrentWeather() {
-        if (lastGeo != null) {
-            weatherRepository.fetchWeatherByCoords(lastGeo.lat, lastGeo.lon, weatherCallback);
+    private void updateUi(WeatherUiState state) {
+        if (state.isLoading()) {
+            tvTemp.setText("—");
+            tvFeels.setText("—");
+            tvDesc.setText("—");
+            tvComfort.setText("Загрузка...");
+            tvWindValue.setText("—");
+            tvPressureValue.setText("—");
+            tvHumidityValue.setText("—");
+            ivWeatherIcon.setImageResource(R.drawable.ow_01d);
+            swipeRefresh.setRefreshing(true);
+            return;
+        }
+
+        swipeRefresh.setRefreshing(false);
+
+        if (state.getError() != null) {
+            tvTemp.setText("Нет соединения");
+            Toast.makeText(requireContext(), state.getError(), Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        WeatherResponse weather = state.getWeather();
+        GeoLocation geo = state.getGeo();
+
+        if (weather == null || weather.getMain() == null) return;
+
+        lastWeather = weather;
+        lastGeo = geo;
+
+        String tempUnit = appPreferences.getTempUnit();
+
+        tvTemp.setText(TemperatureConverter.format(weather.getMain().getTemp(), tempUnit));
+        tvFeels.setText(TemperatureConverter.formatFeelsLike(weather.getMain().getFeelsLike(), tempUnit));
+
+        WeatherResponse.WeatherCondition[] wc = weather.getWeather();
+        if (wc != null && wc.length > 0 && wc[0] != null) {
+            tvDesc.setText(wc[0].getDescription() != null ? wc[0].getDescription() : "—");
+            ivWeatherIcon.setImageResource(WeatherIcon.getResId(wc[0].getIcon()));
         } else {
-            swipeRefresh.setRefreshing(false);
+            tvDesc.setText("—");
+            ivWeatherIcon.setImageResource(R.drawable.ow_01d);
+        }
+
+        if (weather.getWind() != null) {
+            tvWindValue.setText(String.format("%.1f м/с", weather.getWind().getSpeed()));
+        } else {
+            tvWindValue.setText("—");
+        }
+
+        int pressureMmHg = PressureConverter.toMmHg(weather.getMain().getPressure());
+        tvPressureValue.setText(String.valueOf(pressureMmHg));
+        tvHumidityValue.setText(String.valueOf(weather.getMain().getHumidity()) + "%");
+
+        double windSpeed = weather.getWind() != null ? weather.getWind().getSpeed() : 0;
+        double pop = cachedHourly.isEmpty() ? 0 : cachedHourly.get(0).pop;
+        double temp = TemperatureConverter.toDisplay(weather.getMain().getTemp(), tempUnit);
+        tvComfort.setText(ComfortIndex.getComfortMessage(
+                temp, windSpeed, weather.getMain().getHumidity(), weather.getMain().getPressure(), pop));
+
+        if (geo != null) {
+            notifyActivityAboutGeo(geo);
+            loadForecast(geo.lat, geo.lon);
         }
     }
 
@@ -144,8 +214,7 @@ public class NowFragment extends Fragment {
             return;
         }
         hideKeyboard();
-        showLoading();
-        weatherRepository.fetchWeather(city, null, weatherCallback);
+        viewModel.fetchWeatherByCity(city);
     }
 
     private void hideKeyboard() {
@@ -164,67 +233,15 @@ public class NowFragment extends Fragment {
     }
 
     public void loadWeatherByCoords(double lat, double lon) {
-        showLoading();
-        weatherRepository.fetchWeatherByCoords(lat, lon, weatherCallback);
+        lastGeo = new GeoLocation();
+        lastGeo.lat = lat;
+        lastGeo.lon = lon;
+        lastGeo.name = "GPS";
+        viewModel.fetchWeatherByCoords(lat, lon);
     }
 
     public void loadWeatherByCity(String cityName) {
-        showLoading();
-        weatherRepository.fetchWeather(cityName, null, weatherCallback);
-    }
-
-    private void showLoading() {
-        tvTemp.setText("—");
-        tvFeels.setText("—");
-        tvDesc.setText("—");
-        tvComfort.setText("Загрузка...");
-        tvWindValue.setText("—");
-        tvPressureValue.setText("—");
-        tvHumidityValue.setText("—");
-        ivWeatherIcon.setImageResource(R.drawable.ow_01d);
-        cachedHourly.clear();
-        cachedHourlyLat = Double.NaN;
-        cachedHourlyLon = Double.NaN;
-        hourlyAdapter.submitList(null);
-    }
-
-    private void showWeather(WeatherResponse w) {
-        if (w == null || w.getMain() == null) return;
-
-        String tempUnit = appPreferences.getTempUnit();
-
-        // Используем TemperatureConverter для конвертации и форматирования
-        tvTemp.setText(TemperatureConverter.format(w.getMain().getTemp(), tempUnit));
-        tvFeels.setText(TemperatureConverter.formatFeelsLike(w.getMain().getFeelsLike(), tempUnit));
-
-        // Описание и иконка
-        WeatherResponse.WeatherCondition[] wc = w.getWeather();
-        if (wc != null && wc.length > 0 && wc[0] != null) {
-            tvDesc.setText(wc[0].getDescription() != null ? wc[0].getDescription() : "—");
-            ivWeatherIcon.setImageResource(WeatherIcon.getResId(wc[0].getIcon()));
-        } else {
-            tvDesc.setText("—");
-            ivWeatherIcon.setImageResource(R.drawable.ow_01d);
-        }
-
-        // Ветер
-        if (w.getWind() != null) {
-            tvWindValue.setText(String.format("%.1f м/с", w.getWind().getSpeed()));
-        } else {
-            tvWindValue.setText("—");
-        }
-
-        // Давление (используем PressureConverter)
-        int pressureMmHg = PressureConverter.toMmHg(w.getMain().getPressure());
-        tvPressureValue.setText(String.valueOf(pressureMmHg));
-        tvHumidityValue.setText(String.valueOf(w.getMain().getHumidity()) + "%");
-
-        // Комфорт-индекс
-        double windSpeed = w.getWind() != null ? w.getWind().getSpeed() : 0;
-        double pop       = cachedHourly.isEmpty() ? 0 : cachedHourly.get(0).pop;
-        double temp      = TemperatureConverter.toDisplay(w.getMain().getTemp(), tempUnit);
-        tvComfort.setText(ComfortIndex.getComfortMessage(
-                temp, windSpeed, w.getMain().getHumidity(), w.getMain().getPressure(), pop));
+        viewModel.fetchWeatherByCity(cityName);
     }
 
     private void loadForecast(double lat, double lon) {
@@ -241,9 +258,10 @@ public class NowFragment extends Fragment {
             return;
         }
 
-        weatherRepository.fetchForecast(lat, lon, new WeatherRepository.ForecastCallback() {
+        // Прямой вызов репозитория для прогноза (ViewModel пока только для текущей погоды)
+        viewModel.getWeatherRepository().fetchForecast(lat, lon, new WeatherRepository.ForecastCallback() {
             @Override
-            public void onSuccess(ForecastResponse forecast) {
+            public void onSuccess(com.home.myweather.data.model.ForecastResponse forecast) {
                 if (isAdded() && getActivity() != null && !getActivity().isDestroyed()) {
                     requireActivity().runOnUiThread(() -> {
                         List<ForecastItem> source = forecast != null ? forecast.list : null;
@@ -266,7 +284,7 @@ public class NowFragment extends Fragment {
         cachedHourlyLon = lon;
         hourlyAdapter.submitList(new ArrayList<>(cachedHourly));
         if (lastWeather != null) {
-            showWeather(lastWeather);
+            WeatherStorage weatherStorage = new WeatherStorage(requireContext());
             weatherStorage.save(lastWeather, lastGeo, cachedHourly);
         }
     }
@@ -277,62 +295,24 @@ public class NowFragment extends Fragment {
         }
     }
 
-    private GeoLocation geoFromWeather(WeatherResponse w) {
-        if (w == null || w.getCoord() == null) return null;
-        GeoLocation geo = new GeoLocation();
-        geo.lat  = w.getCoord().getLat();
-        geo.lon  = w.getCoord().getLon();
-        geo.name = w.getName();
-        return geo;
-    }
-
-    private final WeatherRepository.WeatherCallback weatherCallback =
-            new WeatherRepository.WeatherCallback() {
-                @Override
-                public void onSuccess(WeatherResponse w, GeoLocation geo) {
-                    if (isAdded() && getActivity() != null && !getActivity().isDestroyed()) {
-                        requireActivity().runOnUiThread(() -> {
-                            swipeRefresh.setRefreshing(false);
-                            lastWeather = w;
-                            GeoLocation resolvedGeo = geo != null ? geo : geoFromWeather(w);
-                            lastGeo = resolvedGeo;
-                            showWeather(w);
-                            weatherStorage.save(w, resolvedGeo, cachedHourly);
-                            notifyActivityAboutGeo(resolvedGeo);
-                            if (resolvedGeo != null) {
-                                loadForecast(resolvedGeo.lat, resolvedGeo.lon);
-                            }
-                        });
-                    }
-                }
-
-                @Override
-                public void onError(String message) {
-                    if (isAdded() && getActivity() != null && !getActivity().isDestroyed()) {
-                        requireActivity().runOnUiThread(() -> {
-                            swipeRefresh.setRefreshing(false);
-                            tvTemp.setText("Нет соединения");
-                            Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
-                        });
-                    }
-                }
-            };
-
     public void refresh() {
-        if (lastWeather != null) showWeather(lastWeather);
+        if (lastWeather != null) {
+            updateUi(new WeatherUiState(lastWeather, lastGeo, false, null));
+        }
     }
 
     @Override
     public void onSaveInstanceState(@NonNull Bundle out) {
         super.onSaveInstanceState(out);
-        if (lastWeather != null) out.putSerializable(STATE_WEATHER, lastWeather);
-        if (lastGeo     != null) out.putSerializable(STATE_GEO,     lastGeo);
+        if (lastGeo != null) out.putSerializable(STATE_GEO, lastGeo);
         out.putSerializable(STATE_HOURLY, cachedHourly);
     }
 
     @Override
-    public void onDestroy() {
-        super.onDestroy();
-        if (weatherRepository != null) weatherRepository.cancelPendingRequests();
+    public void onDestroyView() {
+        super.onDestroyView();
+        if (viewModel != null) {
+            viewModel.clearRequests();
+        }
     }
 }
