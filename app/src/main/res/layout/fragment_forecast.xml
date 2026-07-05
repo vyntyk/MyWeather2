@@ -20,7 +20,7 @@
             android:fontFamily="sans-serif"
             android:text="@string/forecast_5days"
             android:textAlignment="center"
-            android:textColor="@color/black"
+            android:textColor="@color/text_primary"
             android:textSize="24sp"
             android:textStyle="bold" />
 
@@ -32,7 +32,7 @@
             android:ellipsize="end"
             android:maxWidth="140dp"
             android:singleLine="true"
-            android:textColor="@color/black"
+            android:textColor="@color/text_primary"
             android:textSize="16sp"
             android:textStyle="bold" />
     </LinearLayout>
@@ -43,7 +43,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="32dp"
         android:textAlignment="center"
-        android:textColor="@color/black"
+        android:textColor="@color/text_primary"
         android:textSize="16sp"
         android:visibility="gone" />
 

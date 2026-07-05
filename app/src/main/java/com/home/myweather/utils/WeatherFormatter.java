@@ -12,9 +12,14 @@ public final class WeatherFormatter {
 
     private WeatherFormatter() {}
 
-    public static String temperature(WeatherResponse w) {
+    public static String temperature(WeatherResponse w, String unit) {
         if (w.getMain() == null) return "—";
-        return String.format(Locale.getDefault(), "Температура: %.1f°C", w.getMain().getTemp());
+        double temp = w.getMain().getTemp();
+        if ("F".equals(unit)) {
+            temp = temp * 9 / 5 + 32;
+            return String.format(Locale.getDefault(), "Температура: %.1f°F", temp);
+        }
+        return String.format(Locale.getDefault(), "Температура: %.1f°C", temp);
     }
 
     public static String wind(WeatherResponse w) {

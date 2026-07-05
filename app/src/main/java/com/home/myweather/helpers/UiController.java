@@ -1,6 +1,7 @@
 package com.home.myweather.helpers;
 
 import android.annotation.SuppressLint;
+import android.content.SharedPreferences;
 import android.os.Build;
 import android.view.View;
 import android.view.WindowInsets;
@@ -19,6 +20,7 @@ public class UiController {
     private final AppCompatActivity activity;
     private final TextView resultat, resultat2, resultat3, resultat4, resultat5;
     private final EditText cityField;
+    private final SharedPreferences prefs;
 
     public UiController(AppCompatActivity activity,
                         TextView t1, TextView t2, TextView t3, TextView t4, TextView t5,
@@ -30,11 +32,13 @@ public class UiController {
         this.resultat4 = t4;
         this.resultat5 = t5;
         this.cityField = cityField;
+        this.prefs = activity.getSharedPreferences("myweather_prefs", 0);
     }
 
     public void showWeather(WeatherResponse w) {
         if (w == null || w.getMain() == null) return;
-        resultat.setText(WeatherFormatter.temperature(w));
+        String unit = prefs.getString("temp_unit", "C");
+        resultat.setText(WeatherFormatter.temperature(w, unit));
         resultat2.setText(WeatherFormatter.wind(w));
         resultat3.setText(WeatherFormatter.pressure(w));
         resultat4.setText(WeatherFormatter.humidity(w));

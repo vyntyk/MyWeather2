@@ -6,23 +6,40 @@ import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil;
+import androidx.recyclerview.widget.ListAdapter;
 import androidx.recyclerview.widget.RecyclerView;
-import java.util.List;
 import com.home.myweather.R;
-public class FavoriteCitiesAdapter extends RecyclerView.Adapter<FavoriteCitiesAdapter.ViewHolder> {
+
+/**
+ * ФИКС 1.3: ListAdapter + DiffUtil вместо notifyDataSetChanged()
+ */
+public class FavoriteCitiesAdapter extends ListAdapter<String, FavoriteCitiesAdapter.ViewHolder> {
 
     public interface OnCityClickListener {
         void onCityClick(String cityName);
         void onCityRemove(String cityName);
     }
 
-    private List<String> cities;
     private OnCityClickListener listener;
 
-    public FavoriteCitiesAdapter(List<String> cities, OnCityClickListener listener) {
-        this.cities = cities;
+    public FavoriteCitiesAdapter(OnCityClickListener listener) {
+        super(DIFF_CALLBACK);
         this.listener = listener;
     }
+
+    private static final DiffUtil.ItemCallback<String> DIFF_CALLBACK =
+            new DiffUtil.ItemCallback<String>() {
+                @Override
+                public boolean areItemsTheSame(@NonNull String old, @NonNull String newItem) {
+                    return old.equals(newItem);
+                }
+
+                @Override
+                public boolean areContentsTheSame(@NonNull String old, @NonNull String newItem) {
+                    return old.equals(newItem);
+                }
+            };
 
     @NonNull
     @Override
@@ -34,7 +51,9 @@ public class FavoriteCitiesAdapter extends RecyclerView.Adapter<FavoriteCitiesAd
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        String city = cities.get(position);
+        String city = getItem(position);
+        if (city == null) return;
+
         holder.tvCity.setText(city);
         
         holder.tvCity.setOnClickListener(v -> {
@@ -48,16 +67,6 @@ public class FavoriteCitiesAdapter extends RecyclerView.Adapter<FavoriteCitiesAd
                 listener.onCityRemove(city);
             }
         });
-    }
-
-    @Override
-    public int getItemCount() {
-        return cities != null ? cities.size() : 0;
-    }
-
-    public void updateCities(List<String> newCities) {
-        this.cities = newCities;
-        notifyDataSetChanged();
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {

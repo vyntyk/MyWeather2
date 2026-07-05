@@ -5,6 +5,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -16,9 +17,13 @@ import java.util.Locale;
 import com.home.myweather.R;
 import com.home.myweather.data.model.DailyData;
 import com.home.myweather.data.model.ForecastItem;
+import com.home.myweather.utils.AppPreferences;
+import com.home.myweather.utils.PressureConverter;
+import com.home.myweather.utils.TemperatureConverter;
 
 /**
  * Фрагмент деталей дня — подробный прогноз на выбранный день.
+ * Использует AppPreferences, TemperatureConverter и PressureConverter для единообразного форматирования.
  */
 public class DayDetailFragment extends Fragment {
 
@@ -45,26 +50,64 @@ public class DayDetailFragment extends Fragment {
         if (getArguments() != null) {
             day = (DailyData) getArguments().getSerializable(ARG_DAY);
         }
+
         if (day != null) {
             SimpleDateFormat sdf = new SimpleDateFormat("EEEE, d MMMM", Locale.getDefault());
             tvTitle.setText(sdf.format(new Date(day.dateMillis)));
 
-            StringBuilder sb = new StringBuilder();
-            sb.append(String.format(Locale.getDefault(), "🌡 Температура: %.0f° / %.0f°\n\n", day.tempMin, day.tempMax));
-            sb.append(String.format(Locale.getDefault(), "💧 Вероятность осадков: %.0f%%\n\n", day.pop * 100));
-            sb.append(String.format(Locale.getDefault(), "📝 Описание: %s\n\n", day.description != null ? day.description : "—"));
+            AppPreferences appPreferences = new AppPreferences(requireContext());
+            String tempUnit = appPreferences.getTempUnit();
 
+            StringBuilder sb = new StringBuilder();
+            
+            // Диапазон температур
+            sb.append("🌡 Температура: ")
+              .append(TemperatureConverter.formatRange(day.tempMin, day.tempMax, tempUnit))
+              .append("\n\n");
+            
+            // Вероятность осадков
+            sb.append(String.format(Locale.getDefault(), "💧 Вероятность осадков: %.0f%%\n\n", day.pop * 100));
+            
+            // Описание
+            sb.append(String.format(Locale.getDefault(), "📝 Описание: %s\n\n", 
+                    day.description != null ? day.description : "—"));
+
+            // Подробно по часам
             if (day.items != null && !day.items.isEmpty()) {
                 sb.append("📊 По часам:\n");
                 SimpleDateFormat hf = new SimpleDateFormat("HH:mm", Locale.getDefault());
+                
                 for (ForecastItem item : day.items) {
                     String time = hf.format(new Date(item.timestamp * 1000L));
-                    double temp = item.main != null ? item.main.temp : 0;
-                    double wind = item.wind != null ? item.wind.speed : 0;
-                    int hum = item.main != null ? item.main.humidity : 0;
-                    int press = item.main != null ? item.main.pressure : 0;
-                    sb.append(String.format(Locale.getDefault(), "   %s — %.0f°, %.1f м/с, %d%%, %d гПа\n",
-                            time, temp, wind, hum, press));
+                    
+                    // Температура
+                    String tempStr = "—";
+                    if (item.main != null) {
+                        tempStr = TemperatureConverter.format(item.main.temp, tempUnit);
+                    }
+                    
+                    // Ветер
+                    String windStr = "—";
+                    if (item.wind != null) {
+                        windStr = String.format(Locale.getDefault(), "%.1f м/с", item.wind.speed);
+                    }
+                    
+                    // Влажность
+                    String humStr = "—";
+                    if (item.main != null) {
+                        humStr = item.main.humidity + "%";
+                    }
+                    
+                    // Давление (в мм рт. ст.)
+                    String pressureStr = "—";
+                    if (item.main != null && item.main.pressure > 0) {
+                        int pressureMmHg = PressureConverter.toMmHg((int) item.main.pressure);
+                        pressureStr = pressureMmHg + " мм рт.ст.";
+                    }
+                    
+                    sb.append(String.format(Locale.getDefault(), 
+                            "   %s — %s, %s, %s, %s\n",
+                            time, tempStr, windStr, humStr, pressureStr));
                 }
             }
 

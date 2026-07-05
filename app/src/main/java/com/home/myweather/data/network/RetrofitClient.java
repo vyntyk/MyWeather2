@@ -4,24 +4,27 @@ import okhttp3.OkHttpClient;
 import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
-
 import java.util.concurrent.TimeUnit;
-import com.home.myweather.data.network.WeatherApiService;
 import com.home.myweather.BuildConfig;
 
 /**
- * Retrofit-клиент.
+ * Singleton Retrofit-клиент для Open-Meteo.
  *
- * Geocoding API и Current Weather API имеют одинаковый хост (api.openweathermap.org),
- * поэтому используем один клиент с базовым URL "https://api.openweathermap.org/".
- * Пути в аннотациях @GET уже содержат нужные prefixes (geo/1.0/... и data/4.0/...).
+ * Два отдельных Retrofit-экземпляра с разными base URL:
+ *  - api.open-meteo.com        → прогноз погоды
+ *  - geocoding-api.open-meteo.com → геокодирование
+ *
+ * Оба используют один и тот же OkHttpClient.
+ * API-ключ не требуется.
  */
 public class RetrofitClient {
 
-    private static final String BASE_URL = "https://api.openweathermap.org/";
-    private static final int TIMEOUT_SECONDS = 15;
+    private static final String WEATHER_BASE_URL = "https://api.open-meteo.com/";
+    private static final String GEO_BASE_URL     = "https://geocoding-api.open-meteo.com/";
+    private static final int    TIMEOUT_SECONDS  = 15;
 
-    private final WeatherApiService apiService;
+    private final WeatherApiService    weatherService;
+    private final GeocodingApiService  geoService;
 
     private RetrofitClient() {
         HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
@@ -36,19 +39,22 @@ public class RetrofitClient {
                 .addInterceptor(logging)
                 .build();
 
-        Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl(BASE_URL)
+        weatherService = new Retrofit.Builder()
+                .baseUrl(WEATHER_BASE_URL)
                 .client(client)
                 .addConverterFactory(GsonConverterFactory.create())
-                .build();
+                .build()
+                .create(WeatherApiService.class);
 
-        apiService = retrofit.create(WeatherApiService.class);
+        geoService = new Retrofit.Builder()
+                .baseUrl(GEO_BASE_URL)
+                .client(client)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build()
+                .create(GeocodingApiService.class);
     }
 
-    /**
-     * Holder-идиома Singleton — потокобезопасна без synchronized.
-     * Класс Holder инициализируется JVM лениво, только при первом вызове getInstance().
-     */
+    /** Holder-идиома Singleton — потокобезопасна без synchronized. */
     private static final class Holder {
         static final RetrofitClient INSTANCE = new RetrofitClient();
     }
@@ -57,7 +63,6 @@ public class RetrofitClient {
         return Holder.INSTANCE;
     }
 
-    public WeatherApiService getApiService() {
-        return apiService;
-    }
+    public WeatherApiService   getApiService()        { return weatherService; }
+    public GeocodingApiService getGeocodingService()  { return geoService; }
 }
