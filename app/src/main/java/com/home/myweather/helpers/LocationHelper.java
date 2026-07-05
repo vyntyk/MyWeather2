@@ -62,12 +62,21 @@ public class LocationHelper {
 
     @SuppressLint("MissingPermission")
     private void getLocation(Callback callback) {
+        // Сначала пробуем получить текущее местоположение
         fusedClient.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null)
                 .addOnSuccessListener(activity, location -> {
                     if (location != null) {
                         callback.onLocationReady(location.getLatitude(), location.getLongitude());
                     } else {
-                        callback.onError("Не удалось определить позицию. Включите GPS.");
+                        // Если getCurrentLocation вернул null, пробуем getLastLocation()
+                        fusedClient.getLastLocation().addOnSuccessListener(activity, lastLocation -> {
+                            if (lastLocation != null) {
+                                callback.onLocationReady(lastLocation.getLatitude(), lastLocation.getLongitude());
+                            } else {
+                                callback.onError("Не удалось определить позицию. Включите GPS.");
+                            }
+                        }).addOnFailureListener(activity, e ->
+                                callback.onError("Ошибка геолокации: " + e.getMessage()));
                     }
                 })
                 .addOnFailureListener(activity, e ->

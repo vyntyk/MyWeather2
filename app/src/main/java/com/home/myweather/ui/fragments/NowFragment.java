@@ -228,6 +228,7 @@ public class NowFragment extends Fragment {
 
     private void onGeoClick() {
         if (getActivity() instanceof MainActivity) {
+            Toast.makeText(requireContext(), "Определение местоположения...", Toast.LENGTH_SHORT).show();
             ((MainActivity) getActivity()).requestGeoLocation();
         }
     }
