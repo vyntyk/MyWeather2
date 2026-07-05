@@ -16,7 +16,7 @@ public class OpenMeteoForecastResponse {
     @SerializedName("daily")   public Daily   daily;
 
     public static class Current {
-        @SerializedName("time")                    public String temperature2mUnit;
+        @SerializedName("time")                    public String time;
         @SerializedName("temperature_2m")          public double  temperature2m;
         @SerializedName("relative_humidity_2m")    public int     relativeHumidity2m;
         @SerializedName("apparent_temperature")    public double  apparentTemperature;

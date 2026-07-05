@@ -1,7 +1,6 @@
 package com.home.myweather.ui.adapters;
 
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -15,19 +14,21 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.List;
 import java.util.Locale;
+
 import com.home.myweather.data.model.ForecastItem;
 import com.home.myweather.data.model.DailyData;
 import com.home.myweather.R;
+import com.home.myweather.utils.AppPreferences;
+import com.home.myweather.utils.PressureConverter;
+import com.home.myweather.utils.TemperatureConverter;
 import com.home.myweather.utils.WeatherIcon;
 
 /**
- * ФИКС 1.3: ListAdapter + DiffUtil вместо notifyDataSetChanged()
+ * Адаптер для отображения прогноза по дням.
+ * Использует утилиты TemperatureConverter и PressureConverter для единообразного форматирования.
  */
 public class DailyAdapter extends ListAdapter<DailyData, DailyAdapter.ViewHolder> {
-
-    private static final double HPA_TO_MMHG = 0.750062;
 
     public interface OnDayClickListener {
         void onDayClick(DailyData day);
@@ -36,10 +37,12 @@ public class DailyAdapter extends ListAdapter<DailyData, DailyAdapter.ViewHolder
     private final SimpleDateFormat dayFormat = new SimpleDateFormat("EEEE, d MMM", Locale.getDefault());
     private OnDayClickListener listener;
     private Context context;
+    private AppPreferences appPreferences;
 
     public DailyAdapter(Context context) {
         super(DIFF_CALLBACK);
         this.context = context;
+        this.appPreferences = new AppPreferences(context);
     }
 
     public DailyAdapter() {
@@ -48,6 +51,7 @@ public class DailyAdapter extends ListAdapter<DailyData, DailyAdapter.ViewHolder
 
     public void setContext(Context context) {
         this.context = context;
+        this.appPreferences = new AppPreferences(context);
     }
 
     private static final DiffUtil.ItemCallback<DailyData> DIFF_CALLBACK =
@@ -75,6 +79,7 @@ public class DailyAdapter extends ListAdapter<DailyData, DailyAdapter.ViewHolder
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         if (context == null) context = parent.getContext();
+        if (appPreferences == null) appPreferences = new AppPreferences(context);
         View v = LayoutInflater.from(context)
                 .inflate(R.layout.item_daily, parent, false);
         return new ViewHolder(v);
@@ -85,38 +90,49 @@ public class DailyAdapter extends ListAdapter<DailyData, DailyAdapter.ViewHolder
         DailyData day = getItem(position);
         if (day == null) return;
 
-        String unit = "C";
-        if (context != null) {
-            SharedPreferences prefs = context.getSharedPreferences("myweather_prefs", 0);
-            unit = prefs.getString("temp_unit", "C");
-        }
+        String tempUnit = appPreferences != null ? appPreferences.getTempUnit() : "C";
 
+        // День и дата
         h.tvDay.setText(dayFormat.format(new Date(day.dateMillis)));
         
-        double tempMin = day.tempMin;
-        double tempMax = day.tempMax;
-        if ("F".equals(unit)) {
-            tempMin = tempMin * 9 / 5 + 32;
-            tempMax = tempMax * 9 / 5 + 32;
-            h.tvTempRange.setText(String.format(Locale.getDefault(), "%.0f°F / %.0f°F", tempMin, tempMax));
-        } else {
-            h.tvTempRange.setText(String.format(Locale.getDefault(), "%.0f°C / %.0f°C", tempMin, tempMax));
-        }
+        // Диапазон температур (используем TemperatureConverter)
+        h.tvTempRange.setText(TemperatureConverter.formatRange(day.tempMin, day.tempMax, tempUnit));
         
+        // Описание
         h.tvDesc.setText(day.description != null ? day.description : "—");
-        h.tvPop.setText(String.format(Locale.getDefault(), "Осадки %.0f%%", day.pop * 100));
-        h.tvWind.setText(String.format(Locale.getDefault(), "Скорость ветра: %.1f м/с", getMaxWindSpeed(day)));
-        h.tvPressure.setText(String.format(Locale.getDefault(), "Давление: %.0f мм рт. ст.", getAveragePressureMmHg(day)));
-        h.tvVisibility.setText(String.format(Locale.getDefault(), "Видимость: %.1f км", getAverageVisibilityKm(day)));
-        h.tvHumidity.setText(String.format(Locale.getDefault(), "Влажность: %.0f%%", getAverageHumidity(day)));
+        
+        // Осадки (в процентах)
+        h.tvPop.setText(String.format(Locale.getDefault(), "Осадки: %.0f%%", day.pop * 100));
+        
+        // Максимальная скорость ветра
+        double maxWind = getMaxWindSpeed(day);
+        h.tvWind.setText(String.format(Locale.getDefault(), "Ветер: %.1f м/с", maxWind));
+        
+        // Среднее давление (используем PressureConverter)
+        double avgPressureHpa = getAveragePressureHpa(day);
+        int avgPressureMmHg = PressureConverter.toMmHg((int) avgPressureHpa);
+        h.tvPressure.setText(String.format(Locale.getDefault(), "Давление: %d мм рт. ст.", avgPressureMmHg));
+        
+        // Видимость
+        double avgVisibility = getAverageVisibilityKm(day);
+        h.tvVisibility.setText(String.format(Locale.getDefault(), "Видимость: %.1f км", avgVisibility));
+        
+        // Влажность
+        double avgHumidity = getAverageHumidity(day);
+        h.tvHumidity.setText(String.format(Locale.getDefault(), "Влажность: %.0f%%", avgHumidity));
 
+        // Иконка погоды
         h.ivWeather.setImageResource(WeatherIcon.getResId(getWeatherIcon(day)));
 
+        // Клик по дню
         h.itemView.setOnClickListener(v -> {
             if (listener != null) listener.onDayClick(day);
         });
     }
 
+    /**
+     * Получает иконку первого по времени элемента с погодой.
+     */
     private String getWeatherIcon(DailyData day) {
         if (day.items == null || day.items.isEmpty()) return null;
         for (ForecastItem item : day.items) {
@@ -127,6 +143,9 @@ public class DailyAdapter extends ListAdapter<DailyData, DailyAdapter.ViewHolder
         return null;
     }
 
+    /**
+     * Получает максимальную скорость ветра за день.
+     */
     private double getMaxWindSpeed(DailyData day) {
         double maxWind = 0;
         if (day.items == null) return maxWind;
@@ -138,9 +157,12 @@ public class DailyAdapter extends ListAdapter<DailyData, DailyAdapter.ViewHolder
         return maxWind;
     }
 
-    private double getAveragePressureMmHg(DailyData day) {
+    /**
+     * Получает среднее давление за день (в гПа).
+     */
+    private double getAveragePressureHpa(DailyData day) {
         int count = 0;
-        int pressureSum = 0;
+        double pressureSum = 0;
         if (day.items != null) {
             for (ForecastItem item : day.items) {
                 if (item.main != null && item.main.pressure > 0) {
@@ -150,12 +172,15 @@ public class DailyAdapter extends ListAdapter<DailyData, DailyAdapter.ViewHolder
             }
         }
         if (count == 0) return 0;
-        return (pressureSum / (double) count) * HPA_TO_MMHG;
+        return pressureSum / count;
     }
 
+    /**
+     * Получает среднюю видимость за день (в км).
+     */
     private double getAverageVisibilityKm(DailyData day) {
         int count = 0;
-        int visibilitySum = 0;
+        double visibilitySum = 0;
         if (day.items != null) {
             for (ForecastItem item : day.items) {
                 if (item.visibility > 0) {
@@ -165,12 +190,15 @@ public class DailyAdapter extends ListAdapter<DailyData, DailyAdapter.ViewHolder
             }
         }
         if (count == 0) return 0;
-        return (visibilitySum / (double) count) / 1000.0;
+        return (visibilitySum / count) / 1000.0; // конвертируем из метров в километры
     }
 
+    /**
+     * Получает среднюю влажность за день.
+     */
     private double getAverageHumidity(DailyData day) {
         int count = 0;
-        int humiditySum = 0;
+        double humiditySum = 0;
         if (day.items != null) {
             for (ForecastItem item : day.items) {
                 if (item.main != null && item.main.humidity >= 0) {
@@ -180,7 +208,7 @@ public class DailyAdapter extends ListAdapter<DailyData, DailyAdapter.ViewHolder
             }
         }
         if (count == 0) return 0;
-        return humiditySum / (double) count;
+        return humiditySum / count;
     }
 
     static class ViewHolder extends RecyclerView.ViewHolder {

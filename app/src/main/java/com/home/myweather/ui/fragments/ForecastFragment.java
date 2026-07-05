@@ -13,11 +13,8 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 
 import com.home.myweather.R;
 import com.home.myweather.data.repository.WeatherRepository;
@@ -27,6 +24,7 @@ import com.home.myweather.data.model.ForecastItem;
 import com.home.myweather.ui.adapters.DailyAdapter;
 import com.home.myweather.data.model.GeoLocation;
 import com.home.myweather.data.model.DailyData;
+import com.home.myweather.utils.ForecastGrouper;
 import com.home.myweather.MainActivity;
 
 public class ForecastFragment extends Fragment {
@@ -139,7 +137,7 @@ public class ForecastFragment extends Fragment {
     private void loadForecast(double lat, double lon) {
         List<ForecastItem> sharedCache = ForecastCache.get(lat, lon);
         if (sharedCache != null) {
-            cachedDays = new ArrayList<>(groupByDay(sharedCache));
+            cachedDays = new ArrayList<>(ForecastGrouper.groupByDay(sharedCache));
             dailyAdapter.submitList(new ArrayList<>(cachedDays));
             return;
         }
@@ -151,7 +149,7 @@ public class ForecastFragment extends Fragment {
                     requireActivity().runOnUiThread(() -> {
                         List<ForecastItem> source = forecast != null ? forecast.list : null;
                         ForecastCache.put(lat, lon, source);
-                        cachedDays = new ArrayList<>(groupByDay(source));
+                        cachedDays = new ArrayList<>(ForecastGrouper.groupByDay(source));
                         dailyAdapter.submitList(new ArrayList<>(cachedDays));
                     });
                 }
@@ -165,41 +163,6 @@ public class ForecastFragment extends Fragment {
                 }
             }
         });
-    }
-
-    private List<DailyData> groupByDay(List<ForecastItem> items) {
-        List<DailyData> result = new ArrayList<>();
-        if (items == null || items.isEmpty()) return result;
-
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-        String currentDay = "";
-        DailyData current = null;
-
-        for (ForecastItem item : items) {
-            String day = sdf.format(new Date(item.timestamp * 1000L));
-            if (!day.equals(currentDay)) {
-                current = new DailyData();
-                current.dateMillis = item.timestamp * 1000L;
-                current.tempMin = item.main != null ? item.main.temp : 0;
-                current.tempMax = item.main != null ? item.main.temp : 0;
-                current.pop = item.pop;
-                current.items = new ArrayList<>();
-                current.items.add(item);
-                if (item.weather != null && item.weather.length > 0 && item.weather[0] != null) {
-                    current.description = item.weather[0].description;
-                }
-                result.add(current);
-                currentDay = day;
-            } else if (current != null) {
-                current.items.add(item);
-                if (item.main != null) {
-                    current.tempMin = Math.min(current.tempMin, item.main.temp);
-                    current.tempMax = Math.max(current.tempMax, item.main.temp);
-                }
-                current.pop = Math.max(current.pop, item.pop);
-            }
-        }
-        return result;
     }
 
     public void refresh() {

@@ -12,7 +12,6 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -20,13 +19,14 @@ import androidx.cardview.widget.CardView;
 import androidx.fragment.app.Fragment;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import com.home.myweather.BuildConfig;
 import com.home.myweather.MainActivity;
 import com.home.myweather.R;
+import com.home.myweather.data.model.GeoLocation;
 import com.home.myweather.data.model.WeatherResponse;
-import com.home.myweather.data.network.RetrofitClient;
-import com.home.myweather.data.network.WeatherApiService;
+import com.home.myweather.data.repository.WeatherRepository;
 import com.home.myweather.data.repository.WeatherStorage;
+import com.home.myweather.utils.AppPreferences;
+import com.home.myweather.utils.TemperatureConverter;
 import com.home.myweather.utils.WeatherIcon;
 import com.home.myweather.utils.WeatherTileLayer;
 
@@ -45,10 +45,6 @@ import org.maplibre.android.style.layers.PropertyFactory;
 import org.maplibre.android.style.layers.RasterLayer;
 import org.maplibre.android.style.sources.RasterSource;
 import org.maplibre.android.style.sources.TileSet;
-
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -103,12 +99,18 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
     private double lastLat = DEFAULT_LAT;
     private double lastLon = DEFAULT_LON;
 
+    private WeatherRepository weatherRepository;
+    private AppPreferences appPreferences;
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
         MapLibre.getInstance(requireContext());
         View v = inflater.inflate(R.layout.fragment_map, container, false);
+
+        weatherRepository = new WeatherRepository();
+        appPreferences = new AppPreferences(requireContext());
 
         mapView = v.findViewById(R.id.map_view);
         mapView.onCreate(savedInstanceState);
@@ -202,31 +204,24 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
         });
     }
 
-    /** Запрашивает погоду для точки на карте и показывает в карточке. */
+    /** Запрашивает погоду для точки на карте через WeatherRepository. */
     private void fetchWeatherForPoint(double lat, double lon) {
-        String apiKey = BuildConfig.OPENWEATHER_API_KEY;
-        if (apiKey == null || apiKey.isEmpty()) return;
-
-        WeatherApiService service = RetrofitClient.getInstance().getApiService();
-        service.getCurrentWeather(lat, lon, apiKey, "metric", "ru")
-                .enqueue(new Callback<WeatherResponse>() {
-                    @Override
-                    public void onResponse(@NonNull Call<WeatherResponse> call,
-                                           @NonNull Response<WeatherResponse> response) {
-                        if (response.isSuccessful() && response.body() != null) {
-                            // Post to main handler and re-check fragment attachment to avoid race with activity/fragment
-                            mainHandler.post(() -> {
-                                if (isAdded()) {
-                                    showWeatherCard(response.body(), response.body().getName());
-                                }
-                            });
-                        }
+        weatherRepository.fetchWeatherByCoords(lat, lon, new WeatherRepository.WeatherCallback() {
+            @Override
+            public void onSuccess(WeatherResponse w, GeoLocation geo) {
+                mainHandler.post(() -> {
+                    if (isAdded()) {
+                        String cityName = geo != null ? geo.name : (w != null ? w.getName() : "");
+                        showWeatherCard(w, cityName);
                     }
-
-                    @Override
-                    public void onFailure(@NonNull Call<WeatherResponse> call,
-                                          @NonNull Throwable t) { /* тихо */ }
                 });
+            }
+
+            @Override
+            public void onError(String message) {
+                // Тихо обрабатываем ошибку при клике на карту
+            }
+        });
     }
 
     /** Заполняет и показывает карточку погоды. */
@@ -239,7 +234,10 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
             mapCityName.setVisibility(View.GONE);
         }
 
-        mapTemp.setText(String.format(Locale.US, "%.0f°C", w.getMain().getTemp()));
+        String tempUnit = appPreferences.getTempUnit();
+        
+        // Используем TemperatureConverter для корректного форматирования
+        mapTemp.setText(TemperatureConverter.formatWhole(w.getMain().getTemp(), tempUnit));
 
         WeatherResponse.WeatherCondition[] wc = w.getWeather();
         if (wc != null && wc.length > 0 && wc[0] != null) {
@@ -340,12 +338,9 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
     }
 
     private void addOWMLayer(@NonNull Style style, @NonNull WeatherTileLayer.Layer layer) {
-        String apiKey = BuildConfig.OPENWEATHER_API_KEY;
-        if (apiKey == null || apiKey.isEmpty()) return;
-
         String sourceId = WeatherTileLayer.sourceId(layer);
         String layerId  = WeatherTileLayer.layerId(layer);
-        String tileUrl  = WeatherTileLayer.tileUrl(layer, apiKey);
+        String tileUrl  = WeatherTileLayer.tileUrl(layer, "");
 
         if (style.getSource(sourceId) == null) {
             TileSet tileSet = new TileSet("2.2.0", tileUrl);
@@ -378,8 +373,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
     }
 
     private void loadTemperatureMarkers() {
-        String apiKey = BuildConfig.OPENWEATHER_API_KEY;
-        if (apiKey == null || apiKey.isEmpty() || symbolManager == null) return;
+        if (symbolManager == null) return;
 
         if (executor == null || executor.isShutdown()) {
             executor = Executors.newFixedThreadPool(4);
@@ -388,31 +382,35 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
         executor.execute(() -> {
             CountDownLatch latch = new CountDownLatch(CITIES.length);
             List<double[]> results = Collections.synchronizedList(new ArrayList<>());
-            WeatherApiService service = RetrofitClient.getInstance().getApiService();
 
             for (double[] city : CITIES) {
                 double lat = city[0];
                 double lon = city[1];
-                service.getCurrentWeather(lat, lon, apiKey, "metric", "ru")
-                        .enqueue(new Callback<WeatherResponse>() {
-                            @Override
-                            public void onResponse(@NonNull Call<WeatherResponse> call,
-                                                   @NonNull Response<WeatherResponse> r) {
-                                try {
-                                    if (r.isSuccessful() && r.body() != null) {
-                                        results.add(new double[]{lat, lon, r.body().getMain().getTemp()});
-                                    }
-                                } finally { latch.countDown(); }
+                
+                weatherRepository.fetchWeatherByCoords(lat, lon, new WeatherRepository.WeatherCallback() {
+                    @Override
+                    public void onSuccess(WeatherResponse w, GeoLocation geo) {
+                        try {
+                            if (w != null && w.getMain() != null) {
+                                results.add(new double[]{lat, lon, w.getMain().getTemp()});
                             }
+                        } finally {
+                            latch.countDown();
+                        }
+                    }
 
-                            @Override
-                            public void onFailure(@NonNull Call<WeatherResponse> call,
-                                                  @NonNull Throwable t) { latch.countDown(); }
-                        });
+                    @Override
+                    public void onError(String message) {
+                        latch.countDown();
+                    }
+                });
             }
 
-            try { latch.await(); } catch (InterruptedException e) {
-                Thread.currentThread().interrupt(); return;
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
             }
 
             mainHandler.post(() -> {
@@ -426,8 +424,9 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
                     style.addImage(TEMP_ICON_ID, createTransparentBitmap());
                 }
 
+                String tempUnit = appPreferences.getTempUnit();
                 for (double[] r : results) {
-                    String text = String.format(Locale.US, "%.0f°C", r[2]);
+                    String text = TemperatureConverter.formatWhole(r[2], tempUnit);
                     tempSymbols.add(symbolManager.create(new SymbolOptions()
                             .withLatLng(new LatLng(r[0], r[1]))
                             .withIconImage(TEMP_ICON_ID)

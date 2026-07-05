@@ -21,7 +21,6 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 import com.home.myweather.R;
 import com.home.myweather.data.repository.WeatherRepository;
@@ -29,7 +28,10 @@ import com.home.myweather.data.repository.ForecastCache;
 import com.home.myweather.data.repository.WeatherStorage;
 import com.home.myweather.data.model.WeatherResponse;
 import com.home.myweather.data.model.ForecastResponse;
+import com.home.myweather.utils.AppPreferences;
 import com.home.myweather.utils.ComfortIndex;
+import com.home.myweather.utils.PressureConverter;
+import com.home.myweather.utils.TemperatureConverter;
 import com.home.myweather.utils.WeatherIcon;
 import com.home.myweather.ui.adapters.HourlyAdapter;
 import com.home.myweather.data.model.GeoLocation;
@@ -41,7 +43,6 @@ public class NowFragment extends Fragment {
     private static final String STATE_WEATHER = "last_weather";
     private static final String STATE_GEO     = "last_geo";
     private static final String STATE_HOURLY  = "hourly";
-    private static final double HPA_TO_MMHG   = 0.750062;
 
     private SwipeRefreshLayout swipeRefresh;
     private ImageView ivWeatherIcon;
@@ -53,6 +54,7 @@ public class NowFragment extends Fragment {
     private HourlyAdapter      hourlyAdapter;
     private WeatherRepository  weatherRepository;
     private WeatherStorage     weatherStorage;
+    private AppPreferences     appPreferences;
     private WeatherResponse    lastWeather;
     private GeoLocation        lastGeo;
     private ArrayList<ForecastItem> cachedHourly    = new ArrayList<>();
@@ -85,6 +87,7 @@ public class NowFragment extends Fragment {
 
         weatherRepository = new WeatherRepository();
         weatherStorage    = new WeatherStorage(requireContext());
+        appPreferences    = new AppPreferences(requireContext());
 
         // Pull-to-refresh
         swipeRefresh.setColorSchemeResources(R.color.accent_blue);
@@ -184,22 +187,13 @@ public class NowFragment extends Fragment {
     private void showWeather(WeatherResponse w) {
         if (w == null || w.getMain() == null) return;
 
-        String unit = requireContext().getSharedPreferences("myweather_prefs", 0)
-                .getString("temp_unit", "C");
+        String tempUnit = appPreferences.getTempUnit();
 
-        double temp      = w.getMain().getTemp();
-        double feelsLike = w.getMain().getFeelsLike();
+        // Используем TemperatureConverter для конвертации и форматирования
+        tvTemp.setText(TemperatureConverter.format(w.getMain().getTemp(), tempUnit));
+        tvFeels.setText(TemperatureConverter.formatFeelsLike(w.getMain().getFeelsLike(), tempUnit));
 
-        if ("F".equals(unit)) {
-            temp      = temp      * 9 / 5 + 32;
-            feelsLike = feelsLike * 9 / 5 + 32;
-            tvTemp.setText(String.format(Locale.US, "%.1f°F", temp));
-            tvFeels.setText(String.format(Locale.US, "Ощущается: %.1f°F", feelsLike));
-        } else {
-            tvTemp.setText(String.format(Locale.US, "%.1f°C", temp));
-            tvFeels.setText(String.format(Locale.US, "Ощущается: %.1f°C", feelsLike));
-        }
-
+        // Описание и иконка
         WeatherResponse.WeatherCondition[] wc = w.getWeather();
         if (wc != null && wc.length > 0 && wc[0] != null) {
             tvDesc.setText(wc[0].getDescription() != null ? wc[0].getDescription() : "—");
@@ -209,18 +203,22 @@ public class NowFragment extends Fragment {
             ivWeatherIcon.setImageResource(R.drawable.ow_01d);
         }
 
+        // Ветер
         if (w.getWind() != null) {
-            tvWindValue.setText(String.format(Locale.US, "%.1f", w.getWind().getSpeed()));
+            tvWindValue.setText(String.format("%.1f м/с", w.getWind().getSpeed()));
         } else {
             tvWindValue.setText("—");
         }
 
-        int pressureMmHg = (int) Math.round(w.getMain().getPressure() * HPA_TO_MMHG);
+        // Давление (используем PressureConverter)
+        int pressureMmHg = PressureConverter.toMmHg(w.getMain().getPressure());
         tvPressureValue.setText(String.valueOf(pressureMmHg));
-        tvHumidityValue.setText(String.valueOf(w.getMain().getHumidity()));
+        tvHumidityValue.setText(String.valueOf(w.getMain().getHumidity()) + "%");
 
+        // Комфорт-индекс
         double windSpeed = w.getWind() != null ? w.getWind().getSpeed() : 0;
         double pop       = cachedHourly.isEmpty() ? 0 : cachedHourly.get(0).pop;
+        double temp      = TemperatureConverter.toDisplay(w.getMain().getTemp(), tempUnit);
         tvComfort.setText(ComfortIndex.getComfortMessage(
                 temp, windSpeed, w.getMain().getHumidity(), w.getMain().getPressure(), pop));
     }

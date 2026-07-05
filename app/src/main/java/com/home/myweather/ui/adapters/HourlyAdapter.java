@@ -1,7 +1,6 @@
 package com.home.myweather.ui.adapters;
 
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -19,25 +18,25 @@ import java.util.Locale;
 
 import com.home.myweather.R;
 import com.home.myweather.data.model.ForecastItem;
+import com.home.myweather.utils.AppPreferences;
+import com.home.myweather.utils.TemperatureConverter;
 import com.home.myweather.utils.WeatherIcon;
 
 /**
  * Адаптер для почасового прогноза (горизонтальный RecyclerView).
- *
- * ФИКС 1.3: Заменён на ListAdapter с DiffUtil вместо notifyDataSetChanged().
- * Преимущества:
- *  - Нет мерцания при обновлении списка
- *  - Анимация только изменённых элементов
- *  - Более плавные переходы
+ * Использует AppPreferences для единообразного доступа к настройкам.
+ * Использует TemperatureConverter для форматирования температур.
  */
 public class HourlyAdapter extends ListAdapter<ForecastItem, HourlyAdapter.ViewHolder> {
 
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
     private Context context;
+    private AppPreferences appPreferences;
 
     public HourlyAdapter(Context context) {
         super(DIFF_CALLBACK);
         this.context = context;
+        this.appPreferences = new AppPreferences(context);
     }
 
     public HourlyAdapter() {
@@ -46,6 +45,7 @@ public class HourlyAdapter extends ListAdapter<ForecastItem, HourlyAdapter.ViewH
 
     public void setContext(Context context) {
         this.context = context;
+        this.appPreferences = new AppPreferences(context);
     }
 
     /**
@@ -91,6 +91,7 @@ public class HourlyAdapter extends ListAdapter<ForecastItem, HourlyAdapter.ViewH
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         if (context == null) context = parent.getContext();
+        if (appPreferences == null) appPreferences = new AppPreferences(context);
         View v = LayoutInflater.from(context)
                 .inflate(R.layout.item_hourly, parent, false);
         return new ViewHolder(v);
@@ -101,25 +102,18 @@ public class HourlyAdapter extends ListAdapter<ForecastItem, HourlyAdapter.ViewH
         ForecastItem item = getItem(position);
         if (item == null) return;
 
+        // Время
         h.tvTime.setText(timeFormat.format(new Date(item.timestamp * 1000L)));
 
+        // Температура (используем TemperatureConverter)
         if (item.main != null) {
-            double temp = item.main.temp;
-            String unit = "C";
-            if (context != null) {
-                SharedPreferences prefs = context.getSharedPreferences("myweather_prefs", 0);
-                unit = prefs.getString("temp_unit", "C");
-            }
-            if ("F".equals(unit)) {
-                temp = temp * 9 / 5 + 32;
-                h.tvTemp.setText(String.format(Locale.getDefault(), "%.0f°F", temp));
-            } else {
-                h.tvTemp.setText(String.format(Locale.getDefault(), "%.0f°C", temp));
-            }
+            String tempUnit = appPreferences != null ? appPreferences.getTempUnit() : "C";
+            h.tvTemp.setText(TemperatureConverter.format(item.main.temp, tempUnit));
         } else {
             h.tvTemp.setText("—");
         }
 
+        // Вероятность осадков
         h.tvPop.setText(String.format(Locale.getDefault(), "%.0f%%", item.pop * 100));
 
         // SVG-иконка погоды
