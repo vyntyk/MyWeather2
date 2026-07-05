@@ -10,7 +10,6 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import androidx.navigation.Navigation
 import com.home.myweather.R
 import com.home.myweather.data.model.DailyData
 import com.home.myweather.data.model.GeoLocation
@@ -61,14 +60,14 @@ class ForecastFragment : Fragment() {
         Log.d(TAG, "Adapter created")
         dailyAdapter.setOnDayClickListener { day ->
             Log.d(TAG, "Day clicked: ${day.dateMillis}")
+            // Call activity to show DayDetailFragment
             try {
-                val navController = Navigation.findNavController(requireActivity(), R.id.nav_host_fragment)
-                val args = DayDetailFragment.newInstance(day).arguments
-                navController.navigate(R.id.action_forecast_to_dayDetail, args)
-                Log.d(TAG, "Navigation successful")
+                val mainActivity = activity as? MainActivity
+                mainActivity?.openDayDetail(day)
+                Log.d(TAG, "openDayDetail called")
             } catch (e: Exception) {
-                Log.e(TAG, "Navigation error: ${e.message}", e)
-                Toast.makeText(requireContext(), "Ошибка навигации: ${e.message}", Toast.LENGTH_LONG).show()
+                Log.e(TAG, "Failed to show DayDetailFragment: ${e.message}", e)
+                Toast.makeText(requireContext(), "Ошибка: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
         rvDaily.layoutManager = LinearLayoutManager(requireContext())

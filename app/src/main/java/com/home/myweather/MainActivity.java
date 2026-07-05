@@ -13,10 +13,10 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.splashscreen.SplashScreen;
-import androidx.navigation.NavController;
-import androidx.navigation.NavDestination;
-import androidx.navigation.Navigation;
-import androidx.navigation.fragment.NavHostFragment;
+import androidx.viewpager2.widget.ViewPager2;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.lifecycle.Lifecycle;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.home.myweather.data.model.DailyData;
@@ -28,7 +28,12 @@ import com.home.myweather.ui.fragments.DayDetailFragment;
 import com.home.myweather.ui.fragments.ForecastFragment;
 import com.home.myweather.ui.fragments.MapFragment;
 import com.home.myweather.ui.fragments.NowFragment;
+import com.home.myweather.ui.fragments.CitiesFragment;
+import com.home.myweather.ui.fragments.SettingsFragment;
 import dagger.hilt.android.AndroidEntryPoint;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @AndroidEntryPoint
 public class MainActivity extends AppCompatActivity {
@@ -37,16 +42,11 @@ public class MainActivity extends AppCompatActivity {
     private static final String STATE_LAST_GEO = "last_geo";
 
     private BottomNavigationView bottomNav;
-    private LocationHelper     locationHelper;
-    private WeatherStorage     weatherStorage;
-    public GeoLocation         lastGeo;  // Made public for ForecastFragment and MapFragment
-    private NavController      navController;
-
-    // Соответствие позиций страниц и id пунктов меню
-    private static final int[] NAV_IDS = {
-            R.id.nav_now, R.id.nav_forecast, R.id.nav_map,
-            R.id.nav_cities, R.id.nav_settings
-    };
+    private ViewPager2 viewPager;
+    private LocationHelper locationHelper;
+    private WeatherStorage weatherStorage;
+    public GeoLocation lastGeo;
+    private MainPagerAdapter pagerAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,6 +61,7 @@ public class MainActivity extends AppCompatActivity {
         weatherStorage = new WeatherStorage(this);
 
         bottomNav = findViewById(R.id.bottom_nav);
+        viewPager = findViewById(R.id.view_pager);
 
         // Restore lastGeo from savedInstanceState
         if (savedInstanceState != null) {
@@ -70,43 +71,37 @@ public class MainActivity extends AppCompatActivity {
             lastGeo = weatherStorage.loadGeo();
         }
 
-        // Setup navigation
-        NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager()
-                .findFragmentById(R.id.nav_host_fragment);
-        if (navHostFragment != null) {
-            navController = navHostFragment.getNavController();
-        }
+        // Setup ViewPager
+        pagerAdapter = new MainPagerAdapter(this);
+        viewPager.setAdapter(pagerAdapter);
 
-        // Handle navigation selection
+        // Handle tab selection from bottom nav
         bottomNav.setOnItemSelectedListener(item -> {
-            int navId = item.getItemId();
-            if (navId == R.id.nav_now) {
-                navController.navigate(R.id.nowDestination);
-                return true;
-            } else if (navId == R.id.nav_forecast) {
-                navController.navigate(R.id.forecastDestination);
-                return true;
-            } else if (navId == R.id.nav_map) {
-                navController.navigate(R.id.mapDestination);
-                return true;
-            } else if (navId == R.id.nav_cities) {
-                navController.navigate(R.id.citiesDestination);
-                return true;
-            } else if (navId == R.id.nav_settings) {
-                navController.navigate(R.id.settingsDestination);
+            int position = getTabPositionFromItemId(item.getItemId());
+            if (position >= 0 && position < pagerAdapter.getItemCount()) {
+                viewPager.setCurrentItem(position, false);
                 return true;
             }
             return false;
         });
 
+        // Handle page changes
+        viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
+            @Override
+            public void onPageSelected(int position) {
+                super.onPageSelected(position);
+                int navId = getNavItemIdFromPosition(position);
+                if (navId != -1) {
+                    bottomNav.setSelectedItemId(navId);
+                }
+            }
+        });
+
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                if (getSupportFragmentManager().getBackStackEntryCount() > 0) {
-                    getSupportFragmentManager().popBackStack();
-                } else if (navController.getCurrentDestination() != null && 
-                           navController.getCurrentDestination().getId() != R.id.nowDestination) {
-                    navController.navigate(R.id.nowDestination);
+                if (viewPager.getCurrentItem() != 0) {
+                    viewPager.setCurrentItem(0, true);
                 } else {
                     setEnabled(false);
                     getOnBackPressedDispatcher().onBackPressed();
@@ -115,14 +110,24 @@ public class MainActivity extends AppCompatActivity {
         });
 
         hideSystemUI();
+    }
 
-        // Слушатель для скрытия overlay-контейнера, когда стек фрагментов пуст
-        getSupportFragmentManager().addOnBackStackChangedListener(() -> {
-            if (getSupportFragmentManager().getBackStackEntryCount() == 0) {
-                View c = findViewById(R.id.fragment_container);
-                if (c != null) c.setVisibility(View.GONE);
-            }
-        });
+    private int getTabPositionFromItemId(int itemId) {
+        if (itemId == R.id.nav_now) return 0;
+        if (itemId == R.id.nav_forecast) return 1;
+        if (itemId == R.id.nav_map) return 2;
+        if (itemId == R.id.nav_cities) return 3;
+        if (itemId == R.id.nav_settings) return 4;
+        return -1;
+    }
+
+    private int getNavItemIdFromPosition(int position) {
+        if (position == 0) return R.id.nav_now;
+        if (position == 1) return R.id.nav_forecast;
+        if (position == 2) return R.id.nav_map;
+        if (position == 3) return R.id.nav_cities;
+        if (position == 4) return R.id.nav_settings;
+        return -1;
     }
 
     private void applyStoredTheme() {
@@ -150,9 +155,6 @@ public class MainActivity extends AppCompatActivity {
                     if (nf != null) nf.loadWeatherByCoords(lat, lon);
                     if (ff != null) ff.setGeoLocation(lastGeo);
                     if (mf != null && mf.isAdded()) mf.moveToLocation(lat, lon);
-                    
-                    // Update bottom nav state
-                    updateBottomNavFromNavController();
                 });
             }
 
@@ -164,32 +166,19 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void updateBottomNavFromNavController() {
-        if (navController != null) {
-            int currentDestId = navController.getCurrentDestination().getId();
-            if (currentDestId == R.id.nowDestination) {
-                bottomNav.setSelectedItemId(R.id.nav_now);
-            } else if (currentDestId == R.id.forecastDestination) {
-                bottomNav.setSelectedItemId(R.id.nav_forecast);
-            } else if (currentDestId == R.id.mapDestination) {
-                bottomNav.setSelectedItemId(R.id.nav_map);
-            } else if (currentDestId == R.id.citiesDestination) {
-                bottomNav.setSelectedItemId(R.id.nav_cities);
-            } else if (currentDestId == R.id.settingsDestination) {
-                bottomNav.setSelectedItemId(R.id.nav_settings);
-            }
-        }
-    }
-
     public void openDayDetail(DailyData day) {
-        Bundle args = DayDetailFragment.newInstance(day).getArguments();
-        navController.navigate(R.id.action_now_to_dayDetail, args);
+        DayDetailFragment fragment = DayDetailFragment.newInstance(day);
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.fragment_container, fragment)
+                .addToBackStack(null)
+                .commit();
+        findViewById(R.id.fragment_container).setVisibility(View.VISIBLE);
     }
 
     public void loadWeatherFromFavoriteCity(String cityName) {
         NowFragment nf = getNowFragment();
         if (nf != null) nf.loadWeatherByCity(cityName);
-        navController.navigate(R.id.nowDestination);
+        viewPager.setCurrentItem(0, true);
     }
 
     public void onWeatherLocationLoaded(GeoLocation geo) {
@@ -211,46 +200,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private NowFragment getNowFragment() {
-        NowFragment f = (NowFragment) getSupportFragmentManager().findFragmentByTag("androidx.navigation_fragment:" + R.id.nowDestination);
-        if (f == null) {
-            // Fallback: try all fragments and check their arguments
-            androidx.fragment.app.FragmentManager fragmentManager = getSupportFragmentManager();
-            for (androidx.fragment.app.Fragment frag : fragmentManager.getFragments()) {
-                if (frag instanceof NowFragment) {
-                    f = (NowFragment) frag;
-                    break;
-                }
-            }
-        }
-        return f;
+        return (NowFragment) pagerAdapter.getFragmentAt(0);
     }
 
     private ForecastFragment getForecastFragment() {
-        ForecastFragment f = (ForecastFragment) getSupportFragmentManager().findFragmentByTag("androidx.navigation_fragment:" + R.id.forecastDestination);
-        if (f == null) {
-            androidx.fragment.app.FragmentManager fragmentManager = getSupportFragmentManager();
-            for (androidx.fragment.app.Fragment frag : fragmentManager.getFragments()) {
-                if (frag instanceof ForecastFragment) {
-                    f = (ForecastFragment) frag;
-                    break;
-                }
-            }
-        }
-        return f;
+        return (ForecastFragment) pagerAdapter.getFragmentAt(1);
     }
 
     private MapFragment getMapFragment() {
-        MapFragment f = (MapFragment) getSupportFragmentManager().findFragmentByTag("androidx.navigation_fragment:" + R.id.mapDestination);
-        if (f == null) {
-            androidx.fragment.app.FragmentManager fragmentManager = getSupportFragmentManager();
-            for (androidx.fragment.app.Fragment frag : fragmentManager.getFragments()) {
-                if (frag instanceof MapFragment) {
-                    f = (MapFragment) frag;
-                    break;
-                }
-            }
-        }
-        return f;
+        return (MapFragment) pagerAdapter.getFragmentAt(2);
     }
 
     @Override
