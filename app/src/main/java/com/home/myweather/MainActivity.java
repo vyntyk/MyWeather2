@@ -75,6 +75,12 @@ public class MainActivity extends AppCompatActivity {
         pagerAdapter = new MainPagerAdapter(this);
         viewPager.setAdapter(pagerAdapter);
 
+        // Add smooth page transformer for better UX
+        viewPager.setPageTransformer(new com.home.myweather.ui.adapters.SmoothPageTransformer());
+
+        // Set offscreen page limit to keep fragments in memory for smoother switching
+        viewPager.setOffscreenPageLimit(3);
+
         // Handle tab selection from bottom nav
         bottomNav.setOnItemSelectedListener(item -> {
             int position = getTabPositionFromItemId(item.getItemId());
