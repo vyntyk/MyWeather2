@@ -9,9 +9,14 @@ import android.content.SharedPreferences;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
+import androidx.core.splashscreen.SplashScreen;
 import androidx.viewpager2.widget.ViewPager2;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.lifecycle.Lifecycle;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.home.myweather.data.model.DailyData;
@@ -23,27 +28,31 @@ import com.home.myweather.ui.fragments.DayDetailFragment;
 import com.home.myweather.ui.fragments.ForecastFragment;
 import com.home.myweather.ui.fragments.MapFragment;
 import com.home.myweather.ui.fragments.NowFragment;
+import com.home.myweather.ui.fragments.CitiesFragment;
+import com.home.myweather.ui.fragments.SettingsFragment;
+import dagger.hilt.android.AndroidEntryPoint;
 
+import java.util.ArrayList;
+import java.util.List;
+
+@AndroidEntryPoint
 public class MainActivity extends AppCompatActivity {
 
     private static final String STATE_SELECTED_PAGE = "selected_page";
     private static final String STATE_LAST_GEO = "last_geo";
 
-    private ViewPager2         viewPager;
     private BottomNavigationView bottomNav;
-    private MainPagerAdapter   pagerAdapter;
-    private LocationHelper     locationHelper;
-    private WeatherStorage     weatherStorage;
-    private GeoLocation        lastGeo;
-
-    // Соответствие позиций страниц и id пунктов меню
-    private static final int[] NAV_IDS = {
-            R.id.nav_now, R.id.nav_forecast, R.id.nav_map,
-            R.id.nav_cities, R.id.nav_settings
-    };
+    private ViewPager2 viewPager;
+    private LocationHelper locationHelper;
+    private WeatherStorage weatherStorage;
+    public GeoLocation lastGeo;
+    private MainPagerAdapter pagerAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // Apply splash screen
+        SplashScreen.installSplashScreen(this);
+        
         applyStoredTheme();
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
@@ -51,56 +60,53 @@ public class MainActivity extends AppCompatActivity {
         locationHelper = new LocationHelper(this);
         weatherStorage = new WeatherStorage(this);
 
-        viewPager = findViewById(R.id.view_pager);
         bottomNav = findViewById(R.id.bottom_nav);
+        viewPager = findViewById(R.id.view_pager);
 
-        pagerAdapter = new MainPagerAdapter(this);
-        viewPager.setAdapter(pagerAdapter);
-        // Предзагружаем соседние страницы, чтобы свайп был плавным
-        viewPager.setOffscreenPageLimit(2);
-
+        // Restore lastGeo from savedInstanceState
         if (savedInstanceState != null) {
             lastGeo = (GeoLocation) savedInstanceState.getSerializable(STATE_LAST_GEO);
-            int page = savedInstanceState.getInt(STATE_SELECTED_PAGE, 0);
-            viewPager.setCurrentItem(page, false);
-            bottomNav.setSelectedItemId(NAV_IDS[page]);
         } else {
+            // Try to load from WeatherStorage
             lastGeo = weatherStorage.loadGeo();
         }
 
-        // ViewPager → BottomNav
-        viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
-            @Override
-            public void onPageSelected(int position) {
-                bottomNav.setSelectedItemId(NAV_IDS[position]);
-                onPageActivated(position);
-            }
-        });
+        // Setup ViewPager
+        pagerAdapter = new MainPagerAdapter(this);
+        viewPager.setAdapter(pagerAdapter);
 
-        // BottomNav → ViewPager
+        // Add smooth page transformer for better UX
+        viewPager.setPageTransformer(new com.home.myweather.ui.adapters.SmoothPageTransformer());
+
+        // Set offscreen page limit to keep fragments in memory for smoother switching
+        viewPager.setOffscreenPageLimit(3);
+
+        // Handle tab selection from bottom nav
         bottomNav.setOnItemSelectedListener(item -> {
-            int page = navIdToPage(item.getItemId());
-            if (page >= 0) {
-                viewPager.setCurrentItem(page, true);
+            int position = getTabPositionFromItemId(item.getItemId());
+            if (position >= 0 && position < pagerAdapter.getItemCount()) {
+                viewPager.setCurrentItem(position, false);
                 return true;
             }
             return false;
         });
 
-        // Карта не поддерживает свайп внутри ViewPager — отключаем свайп только на странице карты
+        // Handle page changes
         viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override
             public void onPageSelected(int position) {
-                viewPager.setUserInputEnabled(position != MainPagerAdapter.PAGE_MAP);
+                super.onPageSelected(position);
+                int navId = getNavItemIdFromPosition(position);
+                if (navId != -1) {
+                    bottomNav.setSelectedItemId(navId);
+                }
             }
         });
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                if (getSupportFragmentManager().getBackStackEntryCount() > 0) {
-                    getSupportFragmentManager().popBackStack();
-                } else if (viewPager.getCurrentItem() != 0) {
+                if (viewPager.getCurrentItem() != 0) {
                     viewPager.setCurrentItem(0, true);
                 } else {
                     setEnabled(false);
@@ -110,32 +116,23 @@ public class MainActivity extends AppCompatActivity {
         });
 
         hideSystemUI();
-
-        // Слушатель для скрытия overlay-контейнера, когда стек фрагментов пуст
-        getSupportFragmentManager().addOnBackStackChangedListener(() -> {
-            if (getSupportFragmentManager().getBackStackEntryCount() == 0) {
-                View c = findViewById(R.id.fragment_container);
-                if (c != null) c.setVisibility(View.GONE);
-            }
-        });
     }
 
-    /** Вызывается когда страница стала активной (через свайп или nav). */
-    private void onPageActivated(int position) {
-        if (position == MainPagerAdapter.PAGE_FORECAST) {
-            ForecastFragment ff = pagerAdapter.getForecastFragment();
-            if (lastGeo != null) {
-                ff.setGeoLocation(lastGeo);
-            } else {
-                ff.showPlaceholder();
-            }
-        }
+    private int getTabPositionFromItemId(int itemId) {
+        if (itemId == R.id.nav_now) return 0;
+        if (itemId == R.id.nav_forecast) return 1;
+        if (itemId == R.id.nav_map) return 2;
+        if (itemId == R.id.nav_cities) return 3;
+        if (itemId == R.id.nav_settings) return 4;
+        return -1;
     }
 
-    private int navIdToPage(int navId) {
-        for (int i = 0; i < NAV_IDS.length; i++) {
-            if (NAV_IDS[i] == navId) return i;
-        }
+    private int getNavItemIdFromPosition(int position) {
+        if (position == 0) return R.id.nav_now;
+        if (position == 1) return R.id.nav_forecast;
+        if (position == 2) return R.id.nav_map;
+        if (position == 3) return R.id.nav_cities;
+        if (position == 4) return R.id.nav_settings;
         return -1;
     }
 
@@ -155,10 +152,15 @@ public class MainActivity extends AppCompatActivity {
                     lastGeo.lat = lat;
                     lastGeo.lon = lon;
                     lastGeo.name = "GPS";
-                    pagerAdapter.getNowFragment().loadWeatherByCoords(lat, lon);
-                    pagerAdapter.getForecastFragment().setGeoLocation(lastGeo);
-                    MapFragment mf = pagerAdapter.getMapFragment();
-                    if (mf.isAdded()) mf.moveToLocation(lat, lon);
+                    
+                    // Update all visible fragments
+                    NowFragment nf = getNowFragment();
+                    ForecastFragment ff = getForecastFragment();
+                    MapFragment mf = getMapFragment();
+                    
+                    if (nf != null) nf.loadWeatherByCoords(lat, lon);
+                    if (ff != null) ff.setGeoLocation(lastGeo);
+                    if (mf != null && mf.isAdded()) mf.moveToLocation(lat, lon);
                 });
             }
 
@@ -171,35 +173,53 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void openDayDetail(DailyData day) {
-        getSupportFragmentManager()
-                .beginTransaction()
-                .replace(R.id.fragment_container, DayDetailFragment.newInstance(day))
-                .addToBackStack("day_detail")
+        DayDetailFragment fragment = DayDetailFragment.newInstance(day);
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.fragment_container, fragment)
+                .addToBackStack(null)
                 .commit();
-            View container = findViewById(R.id.fragment_container);
-            if (container != null) container.setVisibility(View.VISIBLE);
+        findViewById(R.id.fragment_container).setVisibility(View.VISIBLE);
     }
 
     public void loadWeatherFromFavoriteCity(String cityName) {
-        pagerAdapter.getNowFragment().loadWeatherByCity(cityName);
-        viewPager.setCurrentItem(MainPagerAdapter.PAGE_NOW, true);
+        NowFragment nf = getNowFragment();
+        if (nf != null) nf.loadWeatherByCity(cityName);
+        viewPager.setCurrentItem(0, true);
     }
 
     public void onWeatherLocationLoaded(GeoLocation geo) {
         if (geo == null) return;
         lastGeo = geo;
-        pagerAdapter.getForecastFragment().setGeoLocation(geo);
+        ForecastFragment ff = getForecastFragment();
+        if (ff != null) ff.setGeoLocation(geo);
     }
 
     public void refreshWeatherDisplay() {
-        pagerAdapter.getNowFragment().refresh();
-        pagerAdapter.getForecastFragment().refresh();
+        NowFragment nf = getNowFragment();
+        ForecastFragment ff = getForecastFragment();
+        if (nf != null) nf.refresh();
+        if (ff != null) ff.refresh();
+    }
+
+    public GeoLocation getGeoLocation() {
+        return lastGeo;
+    }
+
+    private NowFragment getNowFragment() {
+        return (NowFragment) pagerAdapter.getFragmentAt(0);
+    }
+
+    private ForecastFragment getForecastFragment() {
+        return (ForecastFragment) pagerAdapter.getFragmentAt(1);
+    }
+
+    private MapFragment getMapFragment() {
+        return (MapFragment) pagerAdapter.getFragmentAt(2);
     }
 
     @Override
     protected void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
-        outState.putInt(STATE_SELECTED_PAGE, viewPager.getCurrentItem());
         if (lastGeo != null) outState.putSerializable(STATE_LAST_GEO, lastGeo);
     }
 

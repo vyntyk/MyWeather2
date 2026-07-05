@@ -6,21 +6,24 @@ import retrofit2.Response;
 import com.home.myweather.data.model.GeoLocation;
 import com.home.myweather.data.model.OpenMeteoGeoResponse;
 import com.home.myweather.data.network.GeocodingApiService;
-import com.home.myweather.data.network.RetrofitClient;
+import javax.inject.Inject;
 
 /**
  * Шаг 1: получение координат по названию города через Open-Meteo Geocoding API.
  * API-ключ не нужен.
  */
-class GeocodingRepository {
+public class GeocodingRepository {
+    private final GeocodingApiService geoService;
+
+    @Inject
+    public GeocodingRepository(GeocodingApiService geoService) {
+        this.geoService = geoService;
+    }
 
     interface Callback2 {
         void onSuccess(GeoLocation geo);
         void onError(String message);
     }
-
-    private final GeocodingApiService geoService =
-            RetrofitClient.getInstance().getGeocodingService();
 
     private Call<OpenMeteoGeoResponse> pendingCall;
 
@@ -28,7 +31,7 @@ class GeocodingRepository {
      * @param query  название города, возможно "City,Country" — берётся только часть до запятой
      * @param requestId идентификатор запроса для отмены устаревших ответов
      */
-    void fetch(String query, long requestId, Callback2 callback) {
+    public void fetch(String query, long requestId, Callback2 callback) {
         // Open-Meteo Geocoding принимает только имя города без кода страны
         String cityName = query.contains(",") ? query.split(",")[0].trim() : query.trim();
 
@@ -63,7 +66,7 @@ class GeocodingRepository {
         });
     }
 
-    void cancel() {
+    public void cancel() {
         if (pendingCall != null && !pendingCall.isCanceled()) pendingCall.cancel();
     }
 

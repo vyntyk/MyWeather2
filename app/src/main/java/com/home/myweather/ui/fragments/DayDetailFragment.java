@@ -46,6 +46,11 @@ public class DayDetailFragment extends Fragment {
         TextView tvTitle = v.findViewById(R.id.tv_day_title);
         TextView tvDetails = v.findViewById(R.id.tv_day_details);
 
+        // Проверка на null элементов из layout
+        if (tvTitle == null || tvDetails == null) {
+            return v;
+        }
+
         DailyData day = null;
         if (getArguments() != null) {
             day = (DailyData) getArguments().getSerializable(ARG_DAY);
@@ -114,9 +119,14 @@ public class DayDetailFragment extends Fragment {
             tvDetails.setText(sb.toString());
         }
 
-        v.findViewById(R.id.btn_back).setOnClickListener(vv -> {
-            if (getActivity() != null) getActivity().getSupportFragmentManager().popBackStack();
-        });
+        View btnBack = v.findViewById(R.id.btn_back);
+        if (btnBack != null) {
+            btnBack.setOnClickListener(vv -> {
+                if (getActivity() != null) {
+                    getActivity().getSupportFragmentManager().popBackStack();
+                }
+            });
+        }
 
         return v;
     }

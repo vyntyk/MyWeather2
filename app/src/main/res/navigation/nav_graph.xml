@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/nowDestination">
+
+    <fragment
+        android:id="@+id/nowDestination"
+        android:name="com.home.myweather.ui.fragments.NowFragment"
+        android:label="Текущая погода"
+        tools:layout="@layout/fragment_now">
+        <action
+            android:id="@+id/action_now_to_dayDetail"
+            app:destination="@id/dayDetailDestination" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/forecastDestination"
+        android:name="com.home.myweather.ui.fragments.ForecastFragment"
+        android:label="Прогноз"
+        tools:layout="@layout/fragment_forecast">
+        <action
+            android:id="@+id/action_forecast_to_dayDetail"
+            app:destination="@id/dayDetailDestination" />
+        <action
+            android:id="@+id/action_forecast_to_now"
+            app:destination="@id/nowDestination" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/mapDestination"
+        android:name="com.home.myweather.ui.fragments.MapFragment"
+        android:label="Карта"
+        tools:layout="@layout/fragment_map" />
+
+    <fragment
+        android:id="@+id/citiesDestination"
+        android:name="com.home.myweather.ui.fragments.CitiesFragment"
+        android:label="Избранное"
+        tools:layout="@layout/fragment_cities" />
+
+    <fragment
+        android:id="@+id/settingsDestination"
+        android:name="com.home.myweather.ui.fragments.SettingsFragment"
+        android:label="Настройки"
+        tools:layout="@layout/fragment_settings" />
+
+    <fragment
+        android:id="@+id/dayDetailDestination"
+        android:name="com.home.myweather.ui.fragments.DayDetailFragment"
+        android:label="Детали дня"
+        tools:layout="@layout/fragment_day_detail" />
+
+</navigation>
