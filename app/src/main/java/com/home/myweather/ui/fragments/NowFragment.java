@@ -37,7 +37,10 @@ import com.home.myweather.ui.adapters.HourlyAdapter;
 import com.home.myweather.data.model.GeoLocation;
 import com.home.myweather.data.model.ForecastItem;
 import com.home.myweather.MainActivity;
+import dagger.hilt.android.AndroidEntryPoint;
+import javax.inject.Inject;
 
+@AndroidEntryPoint
 public class NowFragment extends Fragment {
 
     private static final String STATE_WEATHER = "last_weather";
@@ -52,7 +55,8 @@ public class NowFragment extends Fragment {
     private EditText cityField;
 
     private HourlyAdapter      hourlyAdapter;
-    private WeatherRepository  weatherRepository;
+    @Inject
+    WeatherRepository  weatherRepository;
     private WeatherStorage     weatherStorage;
     private AppPreferences     appPreferences;
     private WeatherResponse    lastWeather;
@@ -85,7 +89,7 @@ public class NowFragment extends Fragment {
                 LinearLayoutManager.HORIZONTAL, false));
         rvHourly.setAdapter(hourlyAdapter);
 
-        weatherRepository = new WeatherRepository();
+        // Hilt will inject weatherRepository automatically
         weatherStorage    = new WeatherStorage(requireContext());
         appPreferences    = new AppPreferences(requireContext());
 

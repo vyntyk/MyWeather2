@@ -22,3 +22,5 @@ app/build/
 .cxx
 local.properties
 >>>>>>> origin/master
+/ai.txt
+/java_pid13012.hprof

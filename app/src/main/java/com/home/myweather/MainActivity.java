@@ -199,22 +199,25 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void refreshWeatherDisplay() {
-        NowFragment nf = getSupportFragmentManager().findFragmentByTag("f" + MainPagerAdapter.PAGE_NOW);
-        ForecastFragment ff = getSupportFragmentManager().findFragmentByTag("f" + MainPagerAdapter.PAGE_FORECAST);
-        if (nf != null) nf.refresh();
-        if (ff != null) ff.refresh();
+        Fragment nf = getSupportFragmentManager().findFragmentByTag("f" + MainPagerAdapter.PAGE_NOW);
+        Fragment ff = getSupportFragmentManager().findFragmentByTag("f" + MainPagerAdapter.PAGE_FORECAST);
+        if (nf instanceof NowFragment) ((NowFragment) nf).refresh();
+        if (ff instanceof ForecastFragment) ((ForecastFragment) ff).refresh();
     }
 
     private NowFragment getNowFragment() {
-        return getSupportFragmentManager().findFragmentByTag("f" + MainPagerAdapter.PAGE_NOW);
+        Fragment f = getSupportFragmentManager().findFragmentByTag("f" + MainPagerAdapter.PAGE_NOW);
+        return (NowFragment) f;
     }
 
     private ForecastFragment getForecastFragment() {
-        return getSupportFragmentManager().findFragmentByTag("f" + MainPagerAdapter.PAGE_FORECAST);
+        Fragment f = getSupportFragmentManager().findFragmentByTag("f" + MainPagerAdapter.PAGE_FORECAST);
+        return (ForecastFragment) f;
     }
 
     private MapFragment getMapFragment() {
-        return getSupportFragmentManager().findFragmentByTag("f" + MainPagerAdapter.PAGE_MAP);
+        Fragment f = getSupportFragmentManager().findFragmentByTag("f" + MainPagerAdapter.PAGE_MAP);
+        return (MapFragment) f;
     }
 
     @Override

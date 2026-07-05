@@ -31,7 +31,7 @@ public class GeocodingRepository {
      * @param query  название города, возможно "City,Country" — берётся только часть до запятой
      * @param requestId идентификатор запроса для отмены устаревших ответов
      */
-    void fetch(String query, long requestId, Callback2 callback) {
+    public void fetch(String query, long requestId, Callback2 callback) {
         // Open-Meteo Geocoding принимает только имя города без кода страны
         String cityName = query.contains(",") ? query.split(",")[0].trim() : query.trim();
 
@@ -66,7 +66,7 @@ public class GeocodingRepository {
         });
     }
 
-    void cancel() {
+    public void cancel() {
         if (pendingCall != null && !pendingCall.isCanceled()) pendingCall.cancel();
     }
 
