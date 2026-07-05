@@ -19,7 +19,14 @@
         android:id="@+id/forecastDestination"
         android:name="com.home.myweather.ui.fragments.ForecastFragment"
         android:label="Прогноз"
-        tools:layout="@layout/fragment_forecast" />
+        tools:layout="@layout/fragment_forecast">
+        <action
+            android:id="@+id/action_forecast_to_dayDetail"
+            app:destination="@id/dayDetailDestination" />
+        <action
+            android:id="@+id/action_forecast_to_now"
+            app:destination="@id/nowDestination" />
+    </fragment>
 
     <fragment
         android:id="@+id/mapDestination"
@@ -39,7 +46,7 @@
         android:label="Настройки"
         tools:layout="@layout/fragment_settings" />
 
-    <dialog
+    <fragment
         android:id="@+id/dayDetailDestination"
         android:name="com.home.myweather.ui.fragments.DayDetailFragment"
         android:label="Детали дня"

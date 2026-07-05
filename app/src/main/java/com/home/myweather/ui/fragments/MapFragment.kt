@@ -134,6 +134,16 @@ class MapFragment : Fragment(), OnMapReadyCallback {
         if (saved != null) {
             val geo = weatherStorage.loadGeo()
             showWeatherCard(saved, geo?.name)
+            geo?.let {
+                moveToLocation(it.lat, it.lon)
+            }
+        }
+        
+        // If no geo location, try to get it from MainActivity
+        if (lastLat == DEFAULT_LAT && lastLon == DEFAULT_LON) {
+            (activity as? MainActivity)?.lastGeo?.let { geo ->
+                moveToLocation(geo.lat, geo.lon)
+            }
         }
 
         return v

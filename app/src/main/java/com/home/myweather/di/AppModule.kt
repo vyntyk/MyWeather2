@@ -38,8 +38,8 @@ object AppModule {
     @Singleton
     fun provideWeatherRepository(
         @WeatherApi apiService: WeatherApiService,
-        geocoding: GeocodingRepository
+        geocodingRepository: GeocodingRepository
     ): WeatherRepository {
-        return WeatherRepository(apiService, geocoding)
+        return WeatherRepository(apiService, geocodingRepository)
     }
 }

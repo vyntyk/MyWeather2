@@ -90,7 +90,7 @@ public class NowFragment extends Fragment {
                 LinearLayoutManager.HORIZONTAL, false));
         rvHourly.setAdapter(hourlyAdapter);
 
-        viewModel = new ViewModelProvider(this).get(NowViewModel.class);
+        viewModel = new ViewModelProvider(getActivity()).get(NowViewModel.class);
 
         // Обновляем UI при изменении состояния
         viewModel.getUiState().observe(getViewLifecycleOwner(), this::updateUi);
@@ -132,6 +132,8 @@ public class NowFragment extends Fragment {
             }
             if (savedGeo != null) {
                 lastGeo = savedGeo;
+                // Notify activity about loaded geo location
+                notifyActivityAboutGeo(savedGeo);
             }
         }
 
@@ -227,6 +229,10 @@ public class NowFragment extends Fragment {
     }
 
     private void onGeoClick() {
+        if (getActivity() == null) {
+            Toast.makeText(requireContext(), "Ошибка: активность недоступна", Toast.LENGTH_SHORT).show();
+            return;
+        }
         if (getActivity() instanceof MainActivity) {
             Toast.makeText(requireContext(), "Определение местоположения...", Toast.LENGTH_SHORT).show();
             ((MainActivity) getActivity()).requestGeoLocation();

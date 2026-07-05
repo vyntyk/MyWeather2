@@ -35,7 +35,15 @@ class ForecastViewModel @Inject constructor(
     fun loadForecast(lat: Double, lon: Double) {
         val locationKey = "$lat,$lon"
         
-        // Check cache first
+        // Check ForecastCache first (from NowFragment)
+        val cachedItems = com.home.myweather.data.repository.ForecastCache.get(lat, lon)
+        if (cachedItems != null && cachedItems.isNotEmpty()) {
+            val grouped = com.home.myweather.utils.ForecastGrouper.groupByDay(cachedItems)
+            _uiState.postValue(ForecastUiState(days = grouped, isLoading = false))
+            return
+        }
+        
+        // Check local cache
         val cached = forecastCache[locationKey]
         if (cached != null) {
             _uiState.postValue(ForecastUiState(days = cached, isLoading = false))
@@ -48,7 +56,7 @@ class ForecastViewModel @Inject constructor(
             weatherRepository.fetchForecast(lat, lon, object : WeatherRepository.ForecastCallback {
                 override fun onSuccess(forecast: ForecastResponse) {
                     val items = forecast.list ?: emptyList()
-                    val grouped = ForecastGrouper.groupByDay(items)
+                    val grouped = com.home.myweather.utils.ForecastGrouper.groupByDay(items)
                     
                     // Cache the result
                     forecastCache[locationKey] = grouped

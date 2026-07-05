@@ -50,6 +50,7 @@ public final class ForecastGrouper {
                 current.pop = item.pop;
                 current.items = new ArrayList<>();
                 current.items.add(item);
+                current.description = ""; // Инициализируем описание
                 
                 // Описание из первого элемента дня
                 if (item.weather != null && item.weather.length > 0 && item.weather[0] != null) {

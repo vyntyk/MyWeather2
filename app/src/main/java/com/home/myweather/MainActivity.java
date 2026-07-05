@@ -9,6 +9,7 @@ import android.content.SharedPreferences;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.splashscreen.SplashScreen;
@@ -38,7 +39,7 @@ public class MainActivity extends AppCompatActivity {
     private BottomNavigationView bottomNav;
     private LocationHelper     locationHelper;
     private WeatherStorage     weatherStorage;
-    private GeoLocation        lastGeo;
+    public GeoLocation         lastGeo;  // Made public for ForecastFragment and MapFragment
     private NavController      navController;
 
     // Соответствие позиций страниц и id пунктов меню
@@ -60,6 +61,14 @@ public class MainActivity extends AppCompatActivity {
         weatherStorage = new WeatherStorage(this);
 
         bottomNav = findViewById(R.id.bottom_nav);
+
+        // Restore lastGeo from savedInstanceState
+        if (savedInstanceState != null) {
+            lastGeo = (GeoLocation) savedInstanceState.getSerializable(STATE_LAST_GEO);
+        } else {
+            // Try to load from WeatherStorage
+            lastGeo = weatherStorage.loadGeo();
+        }
 
         // Setup navigation
         NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager()
@@ -195,6 +204,10 @@ public class MainActivity extends AppCompatActivity {
         ForecastFragment ff = getForecastFragment();
         if (nf != null) nf.refresh();
         if (ff != null) ff.refresh();
+    }
+
+    public GeoLocation getGeoLocation() {
+        return lastGeo;
     }
 
     private NowFragment getNowFragment() {

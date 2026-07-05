@@ -1,6 +1,7 @@
 package com.home.myweather.ui.fragments
 
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -9,6 +10,7 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.navigation.Navigation
 import com.home.myweather.R
 import com.home.myweather.data.model.DailyData
 import com.home.myweather.data.model.GeoLocation
@@ -29,6 +31,7 @@ class ForecastFragment : Fragment() {
     companion object {
         private const val STATE_GEO = "geo"
         private const val STATE_DAYS = "days"
+        private const val TAG = "ForecastFragment"
     }
 
     private lateinit var rvDaily: RecyclerView
@@ -55,15 +58,37 @@ class ForecastFragment : Fragment() {
         tvForecastCity = v.findViewById(R.id.tv_forecast_city)
 
         dailyAdapter = DailyAdapter(requireContext())
+        Log.d(TAG, "Adapter created")
         dailyAdapter.setOnDayClickListener { day ->
-            if (activity is MainActivity) {
-                (activity as MainActivity).openDayDetail(day)
+            Log.d(TAG, "Day clicked: ${day.dateMillis}")
+            try {
+                val navController = Navigation.findNavController(requireActivity(), R.id.nav_host_fragment)
+                val args = DayDetailFragment.newInstance(day).arguments
+                navController.navigate(R.id.action_forecast_to_dayDetail, args)
+                Log.d(TAG, "Navigation successful")
+            } catch (e: Exception) {
+                Log.e(TAG, "Navigation error: ${e.message}", e)
+                Toast.makeText(requireContext(), "Ошибка навигации: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
         rvDaily.layoutManager = LinearLayoutManager(requireContext())
         rvDaily.adapter = dailyAdapter
 
-        viewModel = ViewModelProvider(this).get(ForecastViewModel::class.java)
+        // For Hilt ViewModels, use activity-scoped scope
+        // Use requireActivity() but handle potential null gracefully
+        val activity = activity
+        if (activity == null) {
+            Log.e(TAG, "Activity is null in onCreateView")
+            return v
+        }
+        try {
+            viewModel = ViewModelProvider(activity).get(ForecastViewModel::class.java)
+            Log.d(TAG, "ViewModel created successfully")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to create ViewModel: ${e.message}", e)
+            Toast.makeText(context, "Ошибка инициализации: ${e.message}", Toast.LENGTH_LONG).show()
+            return v
+        }
 
         // Observe ViewModel state
         viewModel.uiState.observe(viewLifecycleOwner) { state ->
@@ -76,13 +101,21 @@ class ForecastFragment : Fragment() {
             restoredDays?.let { cachedDays = it }
         }
 
+        // Load weather if we have saved data or if MainActivity has geo location
         if (cachedDays.isNotEmpty()) {
             updateCityTitle()
             showCachedDays()
-        } else if (currentGeo != null) {
-            setGeoLocation(currentGeo!!)
         } else {
-            showPlaceholder()
+            // Check if MainActivity has geo location we can use
+            val mainActivity = activity as? MainActivity
+            mainActivity?.getGeoLocation()?.let { geo ->
+                currentGeo = geo
+                setGeoLocation(geo)
+            } ?: run {
+                // If MainActivity doesn't have geo, try to trigger location request
+                mainActivity?.requestGeoLocation()
+                showPlaceholder()
+            }
         }
 
         isViewCreated = true
