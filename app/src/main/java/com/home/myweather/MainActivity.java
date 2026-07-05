@@ -14,6 +14,7 @@ import androidx.appcompat.app.AppCompatDelegate;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import androidx.fragment.app.Fragment;
 import com.home.myweather.data.model.DailyData;
 import com.home.myweather.data.model.GeoLocation;
 import com.home.myweather.data.repository.WeatherStorage;
@@ -23,7 +24,9 @@ import com.home.myweather.ui.fragments.DayDetailFragment;
 import com.home.myweather.ui.fragments.ForecastFragment;
 import com.home.myweather.ui.fragments.MapFragment;
 import com.home.myweather.ui.fragments.NowFragment;
+import dagger.hilt.android.AndroidEntryPoint;
 
+@AndroidEntryPoint
 public class MainActivity extends AppCompatActivity {
 
     private static final String STATE_SELECTED_PAGE = "selected_page";
@@ -123,11 +126,11 @@ public class MainActivity extends AppCompatActivity {
     /** Вызывается когда страница стала активной (через свайп или nav). */
     private void onPageActivated(int position) {
         if (position == MainPagerAdapter.PAGE_FORECAST) {
-            ForecastFragment ff = pagerAdapter.getForecastFragment();
-            if (lastGeo != null) {
-                ff.setGeoLocation(lastGeo);
-            } else {
-                ff.showPlaceholder();
+            Fragment ff = getSupportFragmentManager().findFragmentByTag("f" + MainPagerAdapter.PAGE_FORECAST);
+            if (ff instanceof ForecastFragment && lastGeo != null) {
+                ((ForecastFragment) ff).setGeoLocation(lastGeo);
+            } else if (ff instanceof ForecastFragment) {
+                ((ForecastFragment) ff).showPlaceholder();
             }
         }
     }
@@ -155,10 +158,12 @@ public class MainActivity extends AppCompatActivity {
                     lastGeo.lat = lat;
                     lastGeo.lon = lon;
                     lastGeo.name = "GPS";
-                    pagerAdapter.getNowFragment().loadWeatherByCoords(lat, lon);
-                    pagerAdapter.getForecastFragment().setGeoLocation(lastGeo);
-                    MapFragment mf = pagerAdapter.getMapFragment();
-                    if (mf.isAdded()) mf.moveToLocation(lat, lon);
+                    NowFragment nf = getNowFragment();
+                    ForecastFragment ff = getForecastFragment();
+                    MapFragment mf = getMapFragment();
+                    if (nf != null) nf.loadWeatherByCoords(lat, lon);
+                    if (ff != null) ff.setGeoLocation(lastGeo);
+                    if (mf != null && mf.isAdded()) mf.moveToLocation(lat, lon);
                 });
             }
 
@@ -181,19 +186,35 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void loadWeatherFromFavoriteCity(String cityName) {
-        pagerAdapter.getNowFragment().loadWeatherByCity(cityName);
+        NowFragment nf = getNowFragment();
+        if (nf != null) nf.loadWeatherByCity(cityName);
         viewPager.setCurrentItem(MainPagerAdapter.PAGE_NOW, true);
     }
 
     public void onWeatherLocationLoaded(GeoLocation geo) {
         if (geo == null) return;
         lastGeo = geo;
-        pagerAdapter.getForecastFragment().setGeoLocation(geo);
+        ForecastFragment ff = getForecastFragment();
+        if (ff != null) ff.setGeoLocation(geo);
     }
 
     public void refreshWeatherDisplay() {
-        pagerAdapter.getNowFragment().refresh();
-        pagerAdapter.getForecastFragment().refresh();
+        NowFragment nf = getSupportFragmentManager().findFragmentByTag("f" + MainPagerAdapter.PAGE_NOW);
+        ForecastFragment ff = getSupportFragmentManager().findFragmentByTag("f" + MainPagerAdapter.PAGE_FORECAST);
+        if (nf != null) nf.refresh();
+        if (ff != null) ff.refresh();
+    }
+
+    private NowFragment getNowFragment() {
+        return getSupportFragmentManager().findFragmentByTag("f" + MainPagerAdapter.PAGE_NOW);
+    }
+
+    private ForecastFragment getForecastFragment() {
+        return getSupportFragmentManager().findFragmentByTag("f" + MainPagerAdapter.PAGE_FORECAST);
+    }
+
+    private MapFragment getMapFragment() {
+        return getSupportFragmentManager().findFragmentByTag("f" + MainPagerAdapter.PAGE_MAP);
     }
 
     @Override

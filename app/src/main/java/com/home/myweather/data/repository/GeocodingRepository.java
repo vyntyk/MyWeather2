@@ -6,21 +6,24 @@ import retrofit2.Response;
 import com.home.myweather.data.model.GeoLocation;
 import com.home.myweather.data.model.OpenMeteoGeoResponse;
 import com.home.myweather.data.network.GeocodingApiService;
-import com.home.myweather.data.network.RetrofitClient;
+import javax.inject.Inject;
 
 /**
  * Шаг 1: получение координат по названию города через Open-Meteo Geocoding API.
  * API-ключ не нужен.
  */
-class GeocodingRepository {
+public class GeocodingRepository {
+    private final GeocodingApiService geoService;
+
+    @Inject
+    public GeocodingRepository(GeocodingApiService geoService) {
+        this.geoService = geoService;
+    }
 
     interface Callback2 {
         void onSuccess(GeoLocation geo);
         void onError(String message);
     }
-
-    private final GeocodingApiService geoService =
-            RetrofitClient.getInstance().getGeocodingService();
 
     private Call<OpenMeteoGeoResponse> pendingCall;
 

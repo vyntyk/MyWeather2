@@ -63,6 +63,14 @@ public class RetrofitClient {
         return Holder.INSTANCE;
     }
 
+    public static WeatherApiService getWeatherApiService() {
+        return getInstance().weatherService;
+    }
+
+    public static GeocodingApiService getGeocodingApiService() {
+        return getInstance().geoService;
+    }
+
     public WeatherApiService   getApiService()        { return weatherService; }
     public GeocodingApiService getGeocodingService()  { return geoService; }
 }

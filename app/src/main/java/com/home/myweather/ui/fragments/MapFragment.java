@@ -54,6 +54,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import javax.inject.Inject;
+import dagger.hilt.android.AndroidEntryPoint;
+
+@AndroidEntryPoint
 public class MapFragment extends Fragment implements OnMapReadyCallback {
 
     private static final double DEFAULT_LAT  = 55.751244;
@@ -99,8 +103,15 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
     private double lastLat = DEFAULT_LAT;
     private double lastLon = DEFAULT_LON;
 
-    private WeatherRepository weatherRepository;
+    @Inject
+    WeatherRepository weatherRepository;
+    private WeatherStorage weatherStorage;
     private AppPreferences appPreferences;
+
+    @Inject
+    public MapFragment() {
+        // Required empty public constructor
+    }
 
     @Nullable
     @Override
@@ -109,8 +120,8 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
         MapLibre.getInstance(requireContext());
         View v = inflater.inflate(R.layout.fragment_map, container, false);
 
-        weatherRepository = new WeatherRepository();
         appPreferences = new AppPreferences(requireContext());
+        weatherStorage = new WeatherStorage(requireContext());
 
         mapView = v.findViewById(R.id.map_view);
         mapView.onCreate(savedInstanceState);
@@ -122,10 +133,9 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
         initLegend(v);
 
         // Показываем сохранённую погоду если есть
-        WeatherStorage storage = new WeatherStorage(requireContext());
-        WeatherResponse saved = storage.loadWeather();
+        WeatherResponse saved = weatherStorage.loadWeather();
         if (saved != null) showWeatherCard(saved,
-                storage.loadGeo() != null ? storage.loadGeo().name : null);
+                weatherStorage.loadGeo() != null ? weatherStorage.loadGeo().name : null);
 
         return v;
     }

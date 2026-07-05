@@ -26,7 +26,10 @@ import com.home.myweather.data.model.GeoLocation;
 import com.home.myweather.data.model.DailyData;
 import com.home.myweather.utils.ForecastGrouper;
 import com.home.myweather.MainActivity;
+import dagger.hilt.android.AndroidEntryPoint;
+import javax.inject.Inject;
 
+@AndroidEntryPoint
 public class ForecastFragment extends Fragment {
 
     private static final String STATE_GEO = "geo";
@@ -36,7 +39,8 @@ public class ForecastFragment extends Fragment {
     private TextView tvPlaceholder;
     private TextView tvForecastCity;
     private DailyAdapter dailyAdapter;
-    private WeatherRepository weatherRepository;
+    @Inject
+    WeatherRepository weatherRepository;
     private GeoLocation currentGeo;
     private GeoLocation pendingGeo;
     private ArrayList<DailyData> cachedDays = new ArrayList<>();

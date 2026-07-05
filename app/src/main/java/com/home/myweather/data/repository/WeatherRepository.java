@@ -16,9 +16,11 @@ import com.home.myweather.data.model.ForecastResponse;
 import com.home.myweather.data.model.GeoLocation;
 import com.home.myweather.data.model.OpenMeteoForecastResponse;
 import com.home.myweather.data.model.WeatherResponse;
+import com.home.myweather.data.network.GeocodingApiService;
 import com.home.myweather.data.network.RetrofitClient;
 import com.home.myweather.data.network.WeatherApiService;
 import com.home.myweather.utils.WmoWeatherCode;
+import javax.inject.Inject;
 
 /**
  * Репозиторий погоды на базе Open-Meteo.
@@ -61,9 +63,23 @@ public class WeatherRepository {
 
     // ── Поля ──────────────────────────────────────────────────────────────
 
-    private final WeatherApiService    apiService = RetrofitClient.getInstance().getApiService();
-    private final GeocodingRepository  geocoding  = new GeocodingRepository();
-    private final Object               lock       = new Object();
+    private final WeatherApiService apiService;
+    private final GeocodingRepository geocoding;
+    private final Object lock = new Object();
+
+    @Inject
+    public WeatherRepository(WeatherApiService apiService, GeocodingRepository geocoding) {
+        this.apiService = apiService;
+        this.geocoding = geocoding;
+    }
+
+    /**
+     * No-args constructor for backward compatibility with existing tests.
+     * Uses RetrofitClient singleton for API services.
+     */
+    public WeatherRepository() {
+        this(RetrofitClient.getWeatherApiService(), new GeocodingRepository(RetrofitClient.getGeocodingApiService()));
+    }
 
     private Call<OpenMeteoForecastResponse> weatherCall;
     private Call<OpenMeteoForecastResponse> forecastCall;
