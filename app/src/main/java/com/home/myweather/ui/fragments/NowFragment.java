@@ -25,7 +25,6 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.google.android.material.textfield.TextInputEditText;
 import com.home.myweather.R;
 import com.home.myweather.data.model.GeoLocation;
-import com.home.myweather.data.model.ForecastItem;
 import com.home.myweather.data.model.WeatherResponse;
 import com.home.myweather.helpers.LocationHelper;
 import com.home.myweather.ui.adapters.HourlyAdapter;
@@ -62,12 +61,14 @@ public class NowFragment extends Fragment {
     private HourlyAdapter hourlyAdapter;
 
     private static final int LOCATION_PERMISSION_REQUEST = 101;
+    private boolean locationHelperInitialized = false;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         viewModel = new ViewModelProvider(this).get(NowViewModel.class);
         appPreferences = new AppPreferences(requireContext());
+        locationHelper = new LocationHelper((AppCompatActivity) requireActivity());
     }
 
     @Nullable
@@ -106,8 +107,11 @@ public class NowFragment extends Fragment {
         // Set focus to search field to show keyboard
         userField.requestFocus();
 
-        locationHelper = new LocationHelper((AppCompatActivity) requireActivity());
-        locationHelper.init(this);
+        // Initialize location helper only once
+        if (!locationHelperInitialized) {
+            locationHelper.init(this);
+            locationHelperInitialized = true;
+        }
 
         setupRecyclerView();
         setupListeners();
@@ -256,7 +260,7 @@ public class NowFragment extends Fragment {
             // Inform MainActivity about the weather location and source
             if (getActivity() instanceof MainActivity) {
                 MainActivity ma = (MainActivity) getActivity();
-                ma.onWeatherLocationLoaded(geo, geo.name);
+                ma.onWeatherLocationLoaded(geo, "Search");
             }
         }
 
