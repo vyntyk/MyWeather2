@@ -15,7 +15,6 @@ import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.splashscreen.SplashScreen;
 import androidx.viewpager2.widget.ViewPager2;
 import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentManager;
 import androidx.lifecycle.Lifecycle;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -49,10 +48,12 @@ public class MainActivity extends AppCompatActivity {
     public GeoLocation lastGeo;
     public String lastGeoSource = "GPS";
     private MainPagerAdapter pagerAdapter;
+    private int currentPage = 0;
+    private ForecastFragment forecastFragment;
+    private MapFragment mapFragment;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        // Apply splash screen
         SplashScreen.installSplashScreen(this);
         
         applyStoredTheme();
@@ -66,44 +67,40 @@ public class MainActivity extends AppCompatActivity {
         bottomNav = findViewById(R.id.bottom_nav);
         viewPager = findViewById(R.id.view_pager);
 
-        // Restore lastGeo from savedInstanceState
         if (savedInstanceState != null) {
             lastGeo = (GeoLocation) savedInstanceState.getSerializable(STATE_LAST_GEO);
             lastGeoSource = savedInstanceState.getString(STATE_LAST_GEO_SOURCE, "GPS");
+            currentPage = savedInstanceState.getInt(STATE_SELECTED_PAGE, 0);
         } else {
-            // Try to load from WeatherStorage
             lastGeo = weatherStorage.loadGeo();
         }
 
-        // Setup ViewPager
         pagerAdapter = new MainPagerAdapter(this);
         viewPager.setAdapter(pagerAdapter);
-
-        // Add smooth page transformer for better UX
         viewPager.setPageTransformer(new com.home.myweather.ui.adapters.SmoothPageTransformer());
+        viewPager.setOffscreenPageLimit(4);
 
-        // Set offscreen page limit to keep fragments in memory for smoother switching
-        viewPager.setOffscreenPageLimit(3);
-
-        // Handle tab selection from bottom nav
         bottomNav.setOnItemSelectedListener(item -> {
             int position = getTabPositionFromItemId(item.getItemId());
             if (position >= 0 && position < pagerAdapter.getItemCount()) {
                 viewPager.setCurrentItem(position, false);
+                syncFragmentsAtPage(position);
                 return true;
             }
             return false;
         });
 
-        // Handle page changes
         viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override
             public void onPageSelected(int position) {
                 super.onPageSelected(position);
+                currentPage = position;
                 int navId = getNavItemIdFromPosition(position);
                 if (navId != -1) {
                     bottomNav.setSelectedItemId(navId);
                 }
+                syncFragmentsAtPage(position);
+                preloadAdjacentFragments(position);
             }
         });
 
@@ -119,7 +116,58 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        viewPager.setCurrentItem(currentPage, false);
+        syncFragmentsAtPage(currentPage);
+        preloadAdjacentFragments(currentPage);
+
         hideSystemUI();
+    }
+
+    private void syncFragmentsAtPage(int position) {
+        if (lastGeo == null) return;
+
+        NowFragment nf = getNowFragment();
+        ForecastFragment ff = getForecastFragment();
+        MapFragment mf = getMapFragment();
+
+        switch (position) {
+            case 0: // Now
+                if (nf != null && nf.isAdded()) {
+                    nf.loadWeatherByCoords(lastGeo.lat, lastGeo.lon);
+                }
+                break;
+            case 1: // Forecast
+                if (ff != null && ff.isAdded()) {
+                    ff.setGeoLocation(lastGeo, lastGeoSource);
+                }
+                break;
+            case 2: // Map
+                if (mf != null && mf.isAdded()) {
+                    mf.moveToLocation(lastGeo.lat, lastGeo.lon);
+                    mf.updateWeatherCard(null, lastGeo.name);
+                }
+                break;
+        }
+    }
+
+    private void preloadAdjacentFragments(int position) {
+        if (position == 0) {
+            // From Now, preload Forecast and Map
+            ForecastFragment ff = getForecastFragment();
+            MapFragment mf = getMapFragment();
+            if (ff != null && ff.isAdded() && lastGeo != null) {
+                ff.setGeoLocation(lastGeo, lastGeoSource);
+            }
+            if (mf != null && mf.isAdded() && lastGeo != null) {
+                mf.moveToLocation(lastGeo.lat, lastGeo.lon);
+            }
+        } else if (position == 1) {
+            // From Forecast, preload Map
+            MapFragment mf = getMapFragment();
+            if (mf != null && mf.isAdded() && lastGeo != null) {
+                mf.moveToLocation(lastGeo.lat, lastGeo.lon);
+            }
+        }
     }
 
     private int getTabPositionFromItemId(int itemId) {
@@ -158,14 +206,21 @@ public class MainActivity extends AppCompatActivity {
                     lastGeo.name = "GPS";
                     lastGeoSource = "GPS";
                     
-                    // Update all visible fragments
+                    weatherStorage.saveGeo(lastGeo);
+                    
                     NowFragment nf = getNowFragment();
                     ForecastFragment ff = getForecastFragment();
                     MapFragment mf = getMapFragment();
                     
-                    if (nf != null) nf.loadWeatherByCoords(lat, lon);
-                    if (ff != null) ff.setGeoLocation(lastGeo, "GPS");
-                    if (mf != null && mf.isAdded()) mf.moveToLocation(lat, lon);
+                    if (nf != null && nf.isAdded()) {
+                        nf.loadWeatherByCoords(lat, lon);
+                    }
+                    if (ff != null && ff.isAdded()) {
+                        ff.setGeoLocation(lastGeo, "GPS");
+                    }
+                    if (mf != null && mf.isAdded()) {
+                        mf.moveToLocation(lat, lon);
+                    }
                 });
             }
 
@@ -196,15 +251,29 @@ public class MainActivity extends AppCompatActivity {
         if (geo == null) return;
         lastGeo = geo;
         lastGeoSource = source != null ? source : "GPS";
+        weatherStorage.saveGeo(geo);
+        
         ForecastFragment ff = getForecastFragment();
-        if (ff != null) ff.setGeoLocation(geo, source);
+        MapFragment mf = getMapFragment();
+        
+        if (ff != null && ff.isAdded()) {
+            ff.setGeoLocation(geo, source);
+        }
+        if (mf != null && mf.isAdded()) {
+            mf.moveToLocation(geo.lat, geo.lon);
+        }
     }
 
     public void refreshWeatherDisplay() {
         NowFragment nf = getNowFragment();
         ForecastFragment ff = getForecastFragment();
+        MapFragment mf = getMapFragment();
+        
         if (nf != null) nf.refresh();
         if (ff != null) ff.refresh();
+        if (mf != null && lastGeo != null) {
+            mf.moveToLocation(lastGeo.lat, lastGeo.lon);
+        }
     }
 
     public GeoLocation getGeoLocation() {
@@ -212,15 +281,18 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private NowFragment getNowFragment() {
-        return (NowFragment) pagerAdapter.getFragmentAt(0);
+        Fragment f = pagerAdapter.getFragmentAt(0);
+        return f instanceof NowFragment ? (NowFragment) f : null;
     }
 
     private ForecastFragment getForecastFragment() {
-        return (ForecastFragment) pagerAdapter.getFragmentAt(1);
+        Fragment f = pagerAdapter.getFragmentAt(1);
+        return f instanceof ForecastFragment ? (ForecastFragment) f : null;
     }
 
     private MapFragment getMapFragment() {
-        return (MapFragment) pagerAdapter.getFragmentAt(2);
+        Fragment f = pagerAdapter.getFragmentAt(2);
+        return f instanceof MapFragment ? (MapFragment) f : null;
     }
 
     @Override
@@ -228,6 +300,7 @@ public class MainActivity extends AppCompatActivity {
         super.onSaveInstanceState(outState);
         if (lastGeo != null) outState.putSerializable(STATE_LAST_GEO, lastGeo);
         outState.putString(STATE_LAST_GEO_SOURCE, lastGeoSource);
+        outState.putInt(STATE_SELECTED_PAGE, currentPage);
     }
 
     @Override

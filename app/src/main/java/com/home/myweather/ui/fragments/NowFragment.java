@@ -78,7 +78,6 @@ public class NowFragment extends Fragment {
                              @Nullable Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.fragment_now, container, false);
         
-        // Prevent NestedScrollView from stealing focus
         v.findViewById(R.id.background).setFocusable(true);
         v.findViewById(R.id.background).setFocusableInTouchMode(true);
         v.findViewById(R.id.background).requestFocus();
@@ -104,10 +103,8 @@ public class NowFragment extends Fragment {
         tvHumidityValue = view.findViewById(R.id.tv_humidity_value);
         rvHourly = view.findViewById(R.id.rv_hourly);
         
-        // Set focus to search field to show keyboard
         userField.requestFocus();
 
-        // Initialize location helper only once
         if (!locationHelperInitialized) {
             locationHelper.init(this);
             locationHelperInitialized = true;
@@ -117,9 +114,8 @@ public class NowFragment extends Fragment {
         setupListeners();
         observeViewModel();
 
-        GeoLocation lastGeo = viewModel.lastGeo;
-        if (lastGeo != null) {
-            viewModel.fetchWeatherByCoords(lastGeo.lat, lastGeo.lon);
+        if (viewModel.lastGeo != null) {
+            viewModel.fetchWeatherByCoords(viewModel.lastGeo.lat, viewModel.lastGeo.lon);
         }
     }
 
@@ -195,7 +191,7 @@ public class NowFragment extends Fragment {
     }
 
     private void observeViewModel() {
-        viewModel.getUiStateLiveData().observe(getViewLifecycleOwner(), state -> {
+        viewModel.uiState.observe(getViewLifecycleOwner(), state -> {
             if (state.isLoading) {
                 showLoading();
             } else if (state.error != null) {
@@ -205,8 +201,7 @@ public class NowFragment extends Fragment {
             }
         });
         
-        // Observe hourly forecast
-        viewModel.getHourlyForecast().observe(getViewLifecycleOwner(), forecast -> {
+        viewModel.hourlyForecast.observe(getViewLifecycleOwner(), forecast -> {
             setHourlyForecast(forecast);
         });
     }
@@ -257,20 +252,17 @@ public class NowFragment extends Fragment {
 
         if (geo != null) {
             userField.setText(geo.name);
-            // Inform MainActivity about the weather location and source
             if (getActivity() instanceof MainActivity) {
                 MainActivity ma = (MainActivity) getActivity();
                 ma.onWeatherLocationLoaded(geo, "Search");
             }
         }
 
-        // Load hourly forecast for next 24 hours
         viewModel.loadForecast(weather.coord.lat, weather.coord.lon);
     }
 
     public void setHourlyForecast(List<com.home.myweather.data.model.ForecastItem> forecast) {
         if (forecast != null && !forecast.isEmpty()) {
-            // Show first 24 hours
             int displayCount = Math.min(forecast.size(), 24);
             hourlyAdapter.submitList(forecast.subList(0, displayCount));
         } else {
@@ -278,7 +270,6 @@ public class NowFragment extends Fragment {
         }
     }
 
-    // Методы для MainActivity
     public void loadWeatherByCoords(double lat, double lon) {
         viewModel.fetchWeatherByCoords(lat, lon);
     }

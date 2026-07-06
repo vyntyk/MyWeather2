@@ -58,4 +58,10 @@ public final class WeatherStorage {
         ArrayList<ForecastItem> result = gson.fromJson(json, type);
         return result != null ? result : new ArrayList<>();
     }
+
+    public void saveGeo(GeoLocation geo) {
+        SharedPreferences.Editor ed = prefs.edit();
+        ed.putString(KEY_GEO, geo != null ? gson.toJson(geo) : null);
+        ed.apply();
+    }
 }

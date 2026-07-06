@@ -13,15 +13,10 @@ import com.home.myweather.R
 import com.home.myweather.data.model.DailyData
 import com.home.myweather.data.model.GeoLocation
 import com.home.myweather.ui.adapters.DailyAdapter
-import com.home.myweather.ui.viewmodel.ForecastUiState
 import com.home.myweather.ui.viewmodel.ForecastViewModel
 import com.home.myweather.MainActivity
 import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
-import com.home.myweather.data.repository.WeatherRepository
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 
 @AndroidEntryPoint
 class ForecastFragment : Fragment() {
@@ -39,8 +34,8 @@ class ForecastFragment : Fragment() {
     
     private var currentGeo: GeoLocation? = null
     private var geoSource: String? = null
-    private var pendingGeo: GeoLocation? = null
     private var cachedDays: ArrayList<DailyData> = ArrayList()
+    private var isViewCreated = false
     
     private lateinit var viewModel: ForecastViewModel
 
@@ -57,7 +52,6 @@ class ForecastFragment : Fragment() {
 
         dailyAdapter = DailyAdapter(requireContext())
         dailyAdapter.setOnDayClickListener { day ->
-            // Call activity to show DayDetailFragment
             try {
                 val mainActivity = activity as? MainActivity
                 mainActivity?.openDayDetail(day)
@@ -68,12 +62,11 @@ class ForecastFragment : Fragment() {
         rvDaily.layoutManager = LinearLayoutManager(requireContext())
         rvDaily.adapter = dailyAdapter
 
-        // For Hilt ViewModels, use activity-scoped scope
-        // Use requireActivity() but handle potential null gracefully
         val activity = activity
         if (activity == null) {
             return v
         }
+        
         try {
             viewModel = ViewModelProvider(activity).get(ForecastViewModel::class.java)
         } catch (e: Exception) {
@@ -81,7 +74,6 @@ class ForecastFragment : Fragment() {
             return v
         }
 
-        // Observe ViewModel state
         viewModel.uiState.observe(viewLifecycleOwner) { state ->
             handleUiState(state)
         }
@@ -89,47 +81,59 @@ class ForecastFragment : Fragment() {
         if (savedInstanceState != null) {
             currentGeo = savedInstanceState.getSerializable(STATE_GEO) as? GeoLocation
             val restoredDays = savedInstanceState.getSerializable(STATE_DAYS) as? ArrayList<DailyData>
-            restoredDays?.let { cachedDays = it }
+            restoredDays?.let { 
+                cachedDays = it
+                if (isViewCreated && cachedDays.isNotEmpty()) {
+                    showCachedDays()
+                }
+            }
             geoSource = savedInstanceState.getString(STATE_GEO_SOURCE)
         }
 
-        // Load weather if we have saved data or if MainActivity has geo location
         if (cachedDays.isNotEmpty()) {
             updateCityTitle()
             showCachedDays()
         } else {
-            // Check if MainActivity has geo location we can use
             val mainActivity = activity as? MainActivity
-            mainActivity?.getGeoLocation()?.let { geo ->
+            mainActivity?.lastGeo?.let { geo ->
                 currentGeo = geo
                 geoSource = mainActivity.lastGeoSource
                 updateCityTitle()
                 setGeoLocation(geo, geoSource)
             } ?: run {
-                // If MainActivity doesn't have geo, try to trigger location request
                 mainActivity?.requestGeoLocation()
                 showPlaceholder()
             }
         }
 
+        isViewCreated = true
         return v
     }
 
-    private fun handleUiState(state: ForecastUiState) {
+    private fun handleUiState(state: com.home.myweather.ui.viewmodel.ForecastUiState) {
+        if (!isViewCreated) return
+        
         if (state.isLoading) {
-            tvPlaceholder.text = "Загрузка..."
-            tvPlaceholder.visibility = View.VISIBLE
-            rvDaily.visibility = View.GONE
+            if (cachedDays.isEmpty()) {
+                tvPlaceholder.text = "Загрузка..."
+                tvPlaceholder.visibility = View.VISIBLE
+                rvDaily.visibility = View.GONE
+            }
             return
         }
 
         state.error?.let { message ->
             Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+            if (cachedDays.isEmpty()) {
+                showPlaceholder()
+            }
             return
         }
 
         if (state.days.isEmpty()) {
-            showPlaceholder()
+            if (cachedDays.isEmpty()) {
+                showPlaceholder()
+            }
         } else {
             cachedDays = ArrayList(state.days)
             dailyAdapter.submitList(ArrayList(cachedDays))
@@ -151,46 +155,40 @@ class ForecastFragment : Fragment() {
     }
 
     fun showPlaceholder() {
+        if (!isViewCreated) return
         rvDaily.visibility = View.GONE
         tvPlaceholder.visibility = View.VISIBLE
         tvPlaceholder.text = "Сначала найдите погоду на вкладке «Сейчас»\n\nЗатем вернитесь сюда для прогноза на 5 дней"
     }
 
     private fun showCachedDays() {
+        if (!isViewCreated) return
         updateCityTitle()
         showList()
         dailyAdapter.submitList(ArrayList(cachedDays))
     }
 
     private fun updateCityTitle() {
-        val city = currentGeo?.name?.takeIf { it.isNotEmpty() } ?: ""
-        // Only show source if it's different from city name (e.g., GPS)
-        val source = geoSource?.takeIf { it.isNotEmpty() && it != city }?.let { " ($it)" } ?: ""
-        tvForecastCity.text = "$city$source"
+        if (!isViewCreated) return
+        tvForecastCity.text = currentGeo?.name?.takeIf { it.isNotEmpty() } ?: ""
     }
 
     private fun showList() {
+        if (!isViewCreated) return
         rvDaily.visibility = View.VISIBLE
         tvPlaceholder.visibility = View.GONE
     }
 
     fun refresh() {
-        viewModel.refresh()
+        if (currentGeo != null) {
+            viewModel.loadForecast(currentGeo!!.lat, currentGeo!!.lon)
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        currentGeo?.let { outState.putSerializable(STATE_GEO, it) }
-        outState.putSerializable(STATE_DAYS, cachedDays)
-        geoSource?.let { outState.putString(STATE_GEO_SOURCE, it) }
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        // ViewModel handles cleanup automatically
+        if (currentGeo != null) outState.putSerializable(STATE_GEO, currentGeo)
+        if (cachedDays.isNotEmpty()) outState.putSerializable(STATE_DAYS, cachedDays)
+        if (geoSource != null) outState.putString(STATE_GEO_SOURCE, geoSource)
     }
 }

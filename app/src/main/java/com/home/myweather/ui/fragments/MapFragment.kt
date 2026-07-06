@@ -57,6 +57,9 @@ class MapFragment : Fragment(), OnMapReadyCallback {
         private const val OSM_STYLE_URL =
             "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
         private const val TEMP_ICON_ID = "temp_label_icon"
+        private const val STATE_LAYER = "active_layer"
+        private const val STATE_LAT = "last_lat"
+        private const val STATE_LON = "last_lon"
 
         private val CITIES = arrayOf(
             doubleArrayOf(55.751244, 37.618423),
@@ -79,15 +82,14 @@ class MapFragment : Fragment(), OnMapReadyCallback {
     private val tempSymbols = mutableListOf<Symbol>()
     private var executor = Executors.newFixedThreadPool(4)
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var isViewCreated = false
 
-    // Buttons for layers
     private var btnNone: TextView? = null
     private var btnTemp: TextView? = null
     private var btnPrecip: TextView? = null
     private var btnClouds: TextView? = null
     private var btnWind: TextView? = null
 
-    // Weather card
     private var cardWeatherInfo: CardView? = null
     private var mapWeatherIcon: ImageView? = null
     private var mapCityName: TextView? = null
@@ -96,12 +98,13 @@ class MapFragment : Fragment(), OnMapReadyCallback {
     private var mapWind: TextView? = null
     private var mapHumidity: TextView? = null
 
-    // Legend
     private var cardLegend: CardView? = null
     private var legendContainer: LinearLayout? = null
 
     private var lastLat = DEFAULT_LAT
     private var lastLon = DEFAULT_LON
+    private var cachedWeather: WeatherResponse? = null
+    private var cachedCityName: String? = null
 
     @Inject
     lateinit var weatherRepository: WeatherRepository
@@ -129,23 +132,43 @@ class MapFragment : Fragment(), OnMapReadyCallback {
         initWeatherCard(v)
         initLegend(v)
 
-        // Show saved weather if exists
-        val saved = weatherStorage.loadWeather()
-        if (saved != null) {
-            val geo = weatherStorage.loadGeo()
-            showWeatherCard(saved, geo?.name)
-            geo?.let {
-                moveToLocation(it.lat, it.lon)
-            }
-        }
-        
-        // If no geo location, try to get it from MainActivity
-        if (lastLat == DEFAULT_LAT && lastLon == DEFAULT_LON) {
-            (activity as? MainActivity)?.lastGeo?.let { geo ->
-                moveToLocation(geo.lat, geo.lon)
+        // Restore state
+        if (savedInstanceState != null) {
+            lastLat = savedInstanceState.getDouble(STATE_LAT, DEFAULT_LAT)
+            lastLon = savedInstanceState.getDouble(STATE_LON, DEFAULT_LON)
+            val layerName = savedInstanceState.getString(STATE_LAYER)
+            activeLayer = layerName?.let {
+                try {
+                    WeatherTileLayer.Layer.valueOf(it)
+                } catch (e: Exception) {
+                    null
+                }
             }
         }
 
+        // Show cached weather immediately
+        val saved = weatherStorage.loadWeather()
+        if (saved != null) {
+            val geo = weatherStorage.loadGeo()
+            cachedWeather = saved
+            cachedCityName = geo?.name
+            if (isViewCreated) {
+                showWeatherCard(saved, geo?.name)
+            }
+            geo?.let {
+                lastLat = it.lat
+                lastLon = it.lon
+            }
+        }
+
+        // Try to get latest from MainActivity if available
+        val activity = activity as? MainActivity
+        activity?.lastGeo?.let { geo ->
+            lastLat = geo.lat
+            lastLon = geo.lon
+        }
+
+        isViewCreated = true
         return v
     }
 
@@ -197,10 +220,16 @@ class MapFragment : Fragment(), OnMapReadyCallback {
             symbolManager?.setIconAllowOverlap(true)
             symbolManager?.setTextAllowOverlap(true)
 
-            when (activeLayer) {
-                WeatherTileLayer.Layer.TEMPERATURE -> loadTemperatureMarkers()
-                else -> activeLayer?.let { addOWMLayer(style, it) }
+            // Load active layer if set
+            activeLayer?.let {
+                if (it == WeatherTileLayer.Layer.TEMPERATURE) {
+                    loadTemperatureMarkers()
+                } else {
+                    addOWMLayer(style, it)
+                }
             }
+
+            updateButtonStates()
         }
 
         map.moveCamera(
@@ -218,14 +247,12 @@ class MapFragment : Fragment(), OnMapReadyCallback {
         map.uiSettings.isCompassEnabled = true
         map.uiSettings.isAttributionEnabled = true
 
-        // Click on map - show weather at point
         map.addOnMapClickListener { point ->
             fetchWeatherForPoint(point.latitude, point.longitude)
             true
         }
     }
 
-    /** Requests weather for a point on the map via WeatherRepository. */
     private fun fetchWeatherForPoint(lat: Double, lon: Double) {
         weatherRepository.fetchWeatherByCoords(
             lat, lon,
@@ -234,21 +261,24 @@ class MapFragment : Fragment(), OnMapReadyCallback {
                     mainHandler.post {
                         if (isAdded) {
                             val cityName = geo?.name ?: w?.name ?: ""
-                            w?.let { showWeatherCard(it, cityName) }
+                            w?.let {
+                                cachedWeather = it
+                                cachedCityName = cityName
+                                showWeatherCard(it, cityName)
+                            }
                         }
                     }
                 }
 
                 override fun onError(message: String) {
-                    // Silently handle error on map click
+                    // Silently handle error
                 }
             }
         )
     }
 
-    /** Fills and shows the weather card. */
     private fun showWeatherCard(w: WeatherResponse?, cityName: String?) {
-        if (w == null || w.main == null || cardWeatherInfo == null) return
+        if (!isViewCreated || w == null || w.main == null || cardWeatherInfo == null) return
 
         if (!cityName.isNullOrEmpty()) {
             mapCityName?.text = cityName
@@ -257,8 +287,6 @@ class MapFragment : Fragment(), OnMapReadyCallback {
         }
 
         val tempUnit = appPreferences.getTempUnit()
-
-        // Use TemperatureConverter for correct formatting
         mapTemp?.text = TemperatureConverter.formatWhole(w.main.temp, tempUnit)
 
         val wc = w.weather
@@ -433,7 +461,7 @@ class MapFragment : Fragment(), OnMapReadyCallback {
             }
 
             mainHandler.post {
-                if (!isAdded || symbolManager == null) return@post
+                if (!isAdded || symbolManager == null || !isViewCreated) return@post
                 clearTemperatureMarkers()
 
                 val style = mapLibreMap?.style
@@ -516,9 +544,14 @@ class MapFragment : Fragment(), OnMapReadyCallback {
         )
     }
 
-    // Update weather card from outside (from MainActivity)
     fun updateWeatherCard(w: WeatherResponse?, cityName: String?) {
-        if (isAdded) w?.let { showWeatherCard(it, cityName) }
+        if (isAdded && isViewCreated) {
+            w?.let {
+                cachedWeather = it
+                cachedCityName = cityName
+                showWeatherCard(it, cityName)
+            }
+        }
     }
 
     override fun onStart() {
@@ -529,6 +562,11 @@ class MapFragment : Fragment(), OnMapReadyCallback {
     override fun onResume() {
         super.onResume()
         mapView?.onResume()
+        
+        // Show cached weather when returning to fragment
+        if (cachedWeather != null) {
+            showWeatherCard(cachedWeather, cachedCityName)
+        }
     }
 
     override fun onPause() {
@@ -544,10 +582,14 @@ class MapFragment : Fragment(), OnMapReadyCallback {
     override fun onSaveInstanceState(@NonNull outState: Bundle) {
         super.onSaveInstanceState(outState)
         mapView?.onSaveInstanceState(outState)
+        outState.putDouble(STATE_LAT, lastLat)
+        outState.putDouble(STATE_LON, lastLon)
+        activeLayer?.let { outState.putString(STATE_LAYER, it.name) }
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
+        isViewCreated = false
         mapView?.onDestroy()
         executor?.shutdownNow()
         executor = null
