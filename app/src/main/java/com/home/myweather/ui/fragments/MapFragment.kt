@@ -590,7 +590,6 @@ class MapFragment : Fragment(), OnMapReadyCallback {
     override fun onDestroyView() {
         super.onDestroyView()
         isViewCreated = false
-        mapView?.onDestroy()
         executor?.shutdownNow()
         executor = null
     }
@@ -598,5 +597,10 @@ class MapFragment : Fragment(), OnMapReadyCallback {
     override fun onLowMemory() {
         super.onLowMemory()
         mapView?.onLowMemory()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        mapView?.onDestroy()
     }
 }
