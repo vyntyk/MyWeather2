@@ -4,6 +4,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.home.myweather.data.model.ForecastItem
 import com.home.myweather.data.model.ForecastResponse
 import com.home.myweather.data.model.GeoLocation
 import com.home.myweather.data.model.WeatherResponse
@@ -23,10 +24,24 @@ class NowViewModel @Inject constructor(
 ) : ViewModel() {
     
     private val _uiState = MutableLiveData<WeatherUiState>(WeatherUiState())
+    
+    @get:JvmName("getUiState")
     val uiState: LiveData<WeatherUiState> = _uiState
     
-    var lastGeo: GeoLocation? = null
-        private set
+    private val _hourlyForecast = MutableLiveData<List<ForecastItem>>()
+    
+    @get:JvmName("getHourlyForecastData")
+    val hourlyForecastLiveData: LiveData<List<ForecastItem>> = _hourlyForecast
+    
+    @JvmField var lastGeo: GeoLocation? = null
+    
+    private var lastForecastLat = Double.NaN
+    private var lastForecastLon = Double.NaN
+    
+    fun getUiStateLiveData(): LiveData<WeatherUiState> = uiState
+    
+    @JvmName("getHourlyForecast")
+    fun getHourlyForecast(): LiveData<List<ForecastItem>> = hourlyForecastLiveData
     
     fun fetchWeatherByCoords(lat: Double, lon: Double) {
         _uiState.postValue(WeatherUiState(isLoading = true, error = null))
@@ -88,10 +103,28 @@ class NowViewModel @Inject constructor(
     }
     
     fun loadForecast(lat: Double, lon: Double) {
+        // Avoid duplicate requests with same coordinates
+        if (lastForecastLat.isNaN().not() && lastForecastLon.isNaN().not() &&
+            Math.abs(lat - lastForecastLat) < 0.001 && Math.abs(lon - lastForecastLon) < 0.001) {
+            return
+        }
+        lastForecastLat = lat
+        lastForecastLon = lon
+        
         viewModelScope.launch {
             weatherRepository.fetchForecast(lat, lon, object : WeatherRepository.ForecastCallback {
-                override fun onSuccess(forecast: com.home.myweather.data.model.ForecastResponse) {
-                    // Forecast is cached, no need to update UI state
+                override fun onSuccess(forecast: ForecastResponse) {
+                    val items = forecast.list ?: emptyList()
+                    _hourlyForecast.postValue(items)
+                    // Update UI state to trigger observation
+                    _uiState.postValue(
+                        WeatherUiState(
+                            weather = _uiState.value?.weather,
+                            geo = _uiState.value?.geo,
+                            isLoading = false,
+                            error = null
+                        )
+                    )
                 }
                 
                 override fun onError(message: String) {
@@ -117,9 +150,9 @@ class NowViewModel @Inject constructor(
 /**
  * UI state for Weather screen.
  */
-data class WeatherUiState(
-    val weather: WeatherResponse? = null,
-    val geo: GeoLocation? = null,
-    val isLoading: Boolean = false,
-    val error: String? = null
+class WeatherUiState(
+    @JvmField var weather: WeatherResponse? = null,
+    @JvmField var geo: GeoLocation? = null,
+    @JvmField var isLoading: Boolean = false,
+    @JvmField var error: String? = null
 )

@@ -58,6 +58,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         locationHelper = new LocationHelper(this);
+        locationHelper.init(this);
         weatherStorage = new WeatherStorage(this);
 
         bottomNav = findViewById(R.id.bottom_nav);

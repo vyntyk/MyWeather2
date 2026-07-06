@@ -1,7 +1,6 @@
 package com.home.myweather.ui.fragments
 
 import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -30,7 +29,6 @@ class ForecastFragment : Fragment() {
     companion object {
         private const val STATE_GEO = "geo"
         private const val STATE_DAYS = "days"
-        private const val TAG = "ForecastFragment"
     }
 
     private lateinit var rvDaily: RecyclerView
@@ -41,7 +39,6 @@ class ForecastFragment : Fragment() {
     private var currentGeo: GeoLocation? = null
     private var pendingGeo: GeoLocation? = null
     private var cachedDays: ArrayList<DailyData> = ArrayList()
-    private var isViewCreated = false
     
     private lateinit var viewModel: ForecastViewModel
 
@@ -57,16 +54,12 @@ class ForecastFragment : Fragment() {
         tvForecastCity = v.findViewById(R.id.tv_forecast_city)
 
         dailyAdapter = DailyAdapter(requireContext())
-        Log.d(TAG, "Adapter created")
         dailyAdapter.setOnDayClickListener { day ->
-            Log.d(TAG, "Day clicked: ${day.dateMillis}")
             // Call activity to show DayDetailFragment
             try {
                 val mainActivity = activity as? MainActivity
                 mainActivity?.openDayDetail(day)
-                Log.d(TAG, "openDayDetail called")
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to show DayDetailFragment: ${e.message}", e)
                 Toast.makeText(requireContext(), "Ошибка: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
@@ -77,14 +70,11 @@ class ForecastFragment : Fragment() {
         // Use requireActivity() but handle potential null gracefully
         val activity = activity
         if (activity == null) {
-            Log.e(TAG, "Activity is null in onCreateView")
             return v
         }
         try {
             viewModel = ViewModelProvider(activity).get(ForecastViewModel::class.java)
-            Log.d(TAG, "ViewModel created successfully")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to create ViewModel: ${e.message}", e)
             Toast.makeText(context, "Ошибка инициализации: ${e.message}", Toast.LENGTH_LONG).show()
             return v
         }
@@ -117,13 +107,6 @@ class ForecastFragment : Fragment() {
             }
         }
 
-        isViewCreated = true
-
-        pendingGeo?.let { geo ->
-            setGeoLocation(geo)
-            pendingGeo = null
-        }
-
         return v
     }
 
@@ -150,11 +133,6 @@ class ForecastFragment : Fragment() {
 
     fun setGeoLocation(geo: GeoLocation) {
         if (geo == null) return
-
-        if (!isViewCreated) {
-            pendingGeo = geo
-            return
-        }
 
         currentGeo = geo
         updateCityTitle()
@@ -197,7 +175,6 @@ class ForecastFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        isViewCreated = false
     }
 
     override fun onDestroy() {

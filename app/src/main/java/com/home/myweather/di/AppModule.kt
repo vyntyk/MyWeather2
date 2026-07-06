@@ -6,6 +6,8 @@ import com.home.myweather.data.network.WeatherApiService
 import com.home.myweather.data.repository.GeocodingRepository
 import com.home.myweather.data.repository.WeatherRepository
 import com.home.myweather.utils.AppPreferences
+import com.home.myweather.di.GeocodingApi
+import com.home.myweather.di.WeatherApi
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -15,6 +17,7 @@ import javax.inject.Singleton
 
 /**
  * Application-level dependency bindings.
+ * Внедрение зависимостей для репозиториев и утилит.
  */
 @Module
 @InstallIn(SingletonComponent::class)
