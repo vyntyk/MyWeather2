@@ -29,6 +29,7 @@ class ForecastFragment : Fragment() {
     companion object {
         private const val STATE_GEO = "geo"
         private const val STATE_DAYS = "days"
+        private const val STATE_GEO_SOURCE = "geo_source"
     }
 
     private lateinit var rvDaily: RecyclerView
@@ -37,6 +38,7 @@ class ForecastFragment : Fragment() {
     private lateinit var dailyAdapter: DailyAdapter
     
     private var currentGeo: GeoLocation? = null
+    private var geoSource: String? = null
     private var pendingGeo: GeoLocation? = null
     private var cachedDays: ArrayList<DailyData> = ArrayList()
     
@@ -88,6 +90,7 @@ class ForecastFragment : Fragment() {
             currentGeo = savedInstanceState.getSerializable(STATE_GEO) as? GeoLocation
             val restoredDays = savedInstanceState.getSerializable(STATE_DAYS) as? ArrayList<DailyData>
             restoredDays?.let { cachedDays = it }
+            geoSource = savedInstanceState.getString(STATE_GEO_SOURCE)
         }
 
         // Load weather if we have saved data or if MainActivity has geo location
@@ -99,7 +102,9 @@ class ForecastFragment : Fragment() {
             val mainActivity = activity as? MainActivity
             mainActivity?.getGeoLocation()?.let { geo ->
                 currentGeo = geo
-                setGeoLocation(geo)
+                geoSource = mainActivity.lastGeoSource
+                updateCityTitle()
+                setGeoLocation(geo, geoSource)
             } ?: run {
                 // If MainActivity doesn't have geo, try to trigger location request
                 mainActivity?.requestGeoLocation()
@@ -127,14 +132,17 @@ class ForecastFragment : Fragment() {
             showPlaceholder()
         } else {
             cachedDays = ArrayList(state.days)
-            showCachedDays()
+            dailyAdapter.submitList(ArrayList(cachedDays))
+            updateCityTitle()
+            showList()
         }
     }
 
-    fun setGeoLocation(geo: GeoLocation) {
+    fun setGeoLocation(geo: GeoLocation, source: String? = null) {
         if (geo == null) return
 
         currentGeo = geo
+        geoSource = source ?: geo.name.takeIf { it.isNotEmpty() }
         updateCityTitle()
 
         cachedDays.clear()
@@ -155,7 +163,10 @@ class ForecastFragment : Fragment() {
     }
 
     private fun updateCityTitle() {
-        tvForecastCity.text = currentGeo?.name?.takeIf { it.isNotEmpty() } ?: ""
+        val city = currentGeo?.name?.takeIf { it.isNotEmpty() } ?: ""
+        // Only show source if it's different from city name (e.g., GPS)
+        val source = geoSource?.takeIf { it.isNotEmpty() && it != city }?.let { " ($it)" } ?: ""
+        tvForecastCity.text = "$city$source"
     }
 
     private fun showList() {
@@ -171,6 +182,7 @@ class ForecastFragment : Fragment() {
         super.onSaveInstanceState(outState)
         currentGeo?.let { outState.putSerializable(STATE_GEO, it) }
         outState.putSerializable(STATE_DAYS, cachedDays)
+        geoSource?.let { outState.putString(STATE_GEO_SOURCE, it) }
     }
 
     override fun onDestroyView() {

@@ -40,12 +40,14 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String STATE_SELECTED_PAGE = "selected_page";
     private static final String STATE_LAST_GEO = "last_geo";
+    private static final String STATE_LAST_GEO_SOURCE = "last_geo_source";
 
     private BottomNavigationView bottomNav;
     private ViewPager2 viewPager;
     private LocationHelper locationHelper;
     private WeatherStorage weatherStorage;
     public GeoLocation lastGeo;
+    public String lastGeoSource = "GPS";
     private MainPagerAdapter pagerAdapter;
 
     @Override
@@ -67,6 +69,7 @@ public class MainActivity extends AppCompatActivity {
         // Restore lastGeo from savedInstanceState
         if (savedInstanceState != null) {
             lastGeo = (GeoLocation) savedInstanceState.getSerializable(STATE_LAST_GEO);
+            lastGeoSource = savedInstanceState.getString(STATE_LAST_GEO_SOURCE, "GPS");
         } else {
             // Try to load from WeatherStorage
             lastGeo = weatherStorage.loadGeo();
@@ -153,6 +156,7 @@ public class MainActivity extends AppCompatActivity {
                     lastGeo.lat = lat;
                     lastGeo.lon = lon;
                     lastGeo.name = "GPS";
+                    lastGeoSource = "GPS";
                     
                     // Update all visible fragments
                     NowFragment nf = getNowFragment();
@@ -160,7 +164,7 @@ public class MainActivity extends AppCompatActivity {
                     MapFragment mf = getMapFragment();
                     
                     if (nf != null) nf.loadWeatherByCoords(lat, lon);
-                    if (ff != null) ff.setGeoLocation(lastGeo);
+                    if (ff != null) ff.setGeoLocation(lastGeo, "GPS");
                     if (mf != null && mf.isAdded()) mf.moveToLocation(lat, lon);
                 });
             }
@@ -188,11 +192,12 @@ public class MainActivity extends AppCompatActivity {
         viewPager.setCurrentItem(0, true);
     }
 
-    public void onWeatherLocationLoaded(GeoLocation geo) {
+    public void onWeatherLocationLoaded(GeoLocation geo, String source) {
         if (geo == null) return;
         lastGeo = geo;
+        lastGeoSource = source != null ? source : "GPS";
         ForecastFragment ff = getForecastFragment();
-        if (ff != null) ff.setGeoLocation(geo);
+        if (ff != null) ff.setGeoLocation(geo, source);
     }
 
     public void refreshWeatherDisplay() {
@@ -222,6 +227,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
         if (lastGeo != null) outState.putSerializable(STATE_LAST_GEO, lastGeo);
+        outState.putString(STATE_LAST_GEO_SOURCE, lastGeoSource);
     }
 
     @Override

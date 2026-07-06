@@ -35,6 +35,7 @@ import com.home.myweather.utils.ComfortIndex;
 import com.home.myweather.utils.PressureConverter;
 import com.home.myweather.utils.TemperatureConverter;
 import com.home.myweather.utils.WeatherIcon;
+import com.home.myweather.MainActivity;
 
 import java.util.Locale;
 import java.util.List;
@@ -252,6 +253,11 @@ public class NowFragment extends Fragment {
 
         if (geo != null) {
             userField.setText(geo.name);
+            // Inform MainActivity about the weather location and source
+            if (getActivity() instanceof MainActivity) {
+                MainActivity ma = (MainActivity) getActivity();
+                ma.onWeatherLocationLoaded(geo, geo.name);
+            }
         }
 
         // Load hourly forecast for next 24 hours
