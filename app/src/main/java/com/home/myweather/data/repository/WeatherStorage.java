@@ -13,6 +13,8 @@ import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.inject.Inject;
+
 /**
  * Постоянное хранилище последних погодных данных.
  * Данные сохраняются в SharedPreferences и переживают закрытие приложения.
@@ -28,6 +30,7 @@ public final class WeatherStorage {
     private final SharedPreferences prefs;
     private final Gson gson = new Gson();
 
+    @Inject
     public WeatherStorage(Context context) {
         prefs = context.getApplicationContext()
                 .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);

@@ -13,7 +13,6 @@ import com.home.myweather.data.model.OpenMeteoForecastResponse;
 import com.home.myweather.data.model.WeatherResponse;
 import com.home.myweather.data.network.WeatherApiService;
 import javax.inject.Inject;
-import javax.inject.Singleton;
 
 /**
  * Репозиторий погоды на базе Open-Meteo.
@@ -23,7 +22,6 @@ import javax.inject.Singleton;
  *
  * API-ключ не нужен. Open-Meteo используется для текущей погоды и прогноза.
  */
-@Singleton
 public class WeatherRepository {
 
     // ── Параметры запроса ─────────────────────────────────────────────────
@@ -66,7 +64,6 @@ public class WeatherRepository {
 
     // ── Конструктор с внедрением зависимостей ────────────────────────────
 
-    @Inject
     public WeatherRepository(WeatherApiService apiService, GeocodingRepository geocoding) {
         this.apiService = apiService;
         this.geocoding = geocoding;

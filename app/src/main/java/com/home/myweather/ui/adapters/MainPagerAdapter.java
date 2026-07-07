@@ -72,20 +72,8 @@ public class MainPagerAdapter extends FragmentStateAdapter {
      */
     @Nullable
     public Fragment getFragmentAt(int position) {
-        Fragment cached = fragmentCache.get(position);
-        if (cached != null && cached.isAdded()) {
-            return cached;
-        }
-        
-        // Try to find fragment by tag if it exists in FragmentManager
-        String tag = "f" + position;
-        Fragment fm = fragmentManager.findFragmentByTag(tag);
-        if (fm != null) {
-            fragmentCache.put(position, fm);
-            return fm;
-        }
-        
-        return cached;
+        // FragmentStateAdapter manages fragments, we just return the cached one
+        return fragmentCache.get(position);
     }
 
     /**

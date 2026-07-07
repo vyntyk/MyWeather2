@@ -10,7 +10,6 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -21,7 +20,6 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
-
 import com.google.android.material.textfield.TextInputEditText;
 import com.home.myweather.R;
 import com.home.myweather.data.model.GeoLocation;
@@ -35,22 +33,14 @@ import com.home.myweather.utils.PressureConverter;
 import com.home.myweather.utils.TemperatureConverter;
 import com.home.myweather.utils.WeatherIcon;
 import com.home.myweather.MainActivity;
-
 import java.util.Locale;
 import java.util.List;
-
 import dagger.hilt.android.AndroidEntryPoint;
+import javax.inject.Inject;
 
-/**
- * Фрагмент текущей погоды.
- * Отображает текущие условия, используя NowViewModel для управления состоянием.
- */
 @AndroidEntryPoint
 public class NowFragment extends Fragment {
-
     private NowViewModel viewModel;
-    private AppPreferences appPreferences;
-    private LocationHelper locationHelper;
 
     private SwipeRefreshLayout swipeRefresh;
     private TextInputEditText userField;
@@ -63,12 +53,16 @@ public class NowFragment extends Fragment {
     private static final int LOCATION_PERMISSION_REQUEST = 101;
     private boolean locationHelperInitialized = false;
 
+    @Inject
+    LocationHelper locationHelper;
+
+    @Inject
+    AppPreferences appPreferences;
+
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         viewModel = new ViewModelProvider(this).get(NowViewModel.class);
-        appPreferences = new AppPreferences(requireContext());
-        locationHelper = new LocationHelper((AppCompatActivity) requireActivity());
     }
 
     @Nullable
@@ -77,11 +71,9 @@ public class NowFragment extends Fragment {
                              @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.fragment_now, container, false);
-        
         v.findViewById(R.id.background).setFocusable(true);
         v.findViewById(R.id.background).setFocusableInTouchMode(true);
         v.findViewById(R.id.background).requestFocus();
-        
         return v;
     }
 
@@ -102,7 +94,7 @@ public class NowFragment extends Fragment {
         tvPressureValue = view.findViewById(R.id.tv_pressure_value);
         tvHumidityValue = view.findViewById(R.id.tv_humidity_value);
         rvHourly = view.findViewById(R.id.rv_hourly);
-        
+
         userField.requestFocus();
 
         if (!locationHelperInitialized) {
@@ -116,12 +108,18 @@ public class NowFragment extends Fragment {
 
         if (viewModel.lastGeo != null) {
             viewModel.fetchWeatherByCoords(viewModel.lastGeo.lat, viewModel.lastGeo.lon);
+        } else if (getActivity() instanceof MainActivity) {
+            MainActivity ma = (MainActivity) getActivity();
+            if (ma.getGeoLocation() != null) {
+                loadWeatherByCoords(ma.getGeoLocation().lat, ma.getGeoLocation().lon);
+            }
         }
     }
 
     private void setupRecyclerView() {
         hourlyAdapter = new HourlyAdapter();
-        rvHourly.setLayoutManager(new LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false));
+        rvHourly.setLayoutManager(new LinearLayoutManager(requireContext(),
+                LinearLayoutManager.HORIZONTAL, false));
         rvHourly.setAdapter(hourlyAdapter);
     }
 
@@ -147,10 +145,11 @@ public class NowFragment extends Fragment {
 
     private void hideKeyboard() {
         userField.clearFocus();
-        if (getActivity() != null) {
-            android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager)
-                    getActivity().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
-            if (imm != null && getView() != null) {
+        if (getActivity() != null && getView() != null) {
+            android.view.inputmethod.InputMethodManager imm =
+                    (android.view.inputmethod.InputMethodManager)
+                            getActivity().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+            if (imm != null) {
                 imm.hideSoftInputFromWindow(getView().getWindowToken(), 0);
             }
         }
@@ -182,7 +181,8 @@ public class NowFragment extends Fragment {
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == LOCATION_PERMISSION_REQUEST && grantResults.length > 0
                 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
@@ -200,10 +200,8 @@ public class NowFragment extends Fragment {
                 showWeather(state.weather, state.geo);
             }
         });
-        
-        viewModel.hourlyForecast.observe(getViewLifecycleOwner(), forecast -> {
-            setHourlyForecast(forecast);
-        });
+
+        viewModel.hourlyForecast.observe(getViewLifecycleOwner(), this::setHourlyForecast);
     }
 
     private void showLoading() {
@@ -223,7 +221,6 @@ public class NowFragment extends Fragment {
             tvTemp.setText(TemperatureConverter.format(weather.main.temp, tempUnit));
             tvFeels.setText("Ощущается: " + TemperatureConverter.format(weather.main.feelsLike, tempUnit));
             tvHumidityValue.setText(String.valueOf(weather.main.humidity));
-
             if (weather.main.pressure > 0) {
                 int pressureMmHg = PressureConverter.toMmHg(weather.main.pressure);
                 tvPressureValue.setText(String.valueOf(pressureMmHg));
@@ -236,9 +233,7 @@ public class NowFragment extends Fragment {
 
         if (weather.weather != null && weather.weather.length > 0) {
             tvDesc.setText(weather.weather[0].description);
-            String iconCode = weather.weather[0].icon;
-            int iconRes = WeatherIcon.getResId(iconCode);
-            tvWeatherIcon.setImageResource(iconRes);
+            tvWeatherIcon.setImageResource(WeatherIcon.getResId(weather.weather[0].icon));
         }
 
         String comfortMessage = ComfortIndex.getComfortMessage(
@@ -250,12 +245,9 @@ public class NowFragment extends Fragment {
         );
         tvComfort.setText(comfortMessage);
 
-        if (geo != null) {
+        if (geo != null && getActivity() instanceof MainActivity) {
             userField.setText(geo.name);
-            if (getActivity() instanceof MainActivity) {
-                MainActivity ma = (MainActivity) getActivity();
-                ma.onWeatherLocationLoaded(geo, "Search");
-            }
+            ((MainActivity) getActivity()).onWeatherLocationLoaded(geo, "Search");
         }
 
         viewModel.loadForecast(weather.coord.lat, weather.coord.lon);

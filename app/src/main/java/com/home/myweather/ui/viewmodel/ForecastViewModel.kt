@@ -87,6 +87,14 @@ class ForecastViewModel @Inject constructor(
         }
     }
     
+    fun getCachedDays(): List<DailyData> {
+        currentGeo?.let { geo ->
+            val locationKey = "${geo.lat},${geo.lon}"
+            return forecastCache[locationKey] ?: emptyList()
+        }
+        return emptyList()
+    }
+    
     override fun onCleared() {
         super.onCleared()
         forecastCache.clear()

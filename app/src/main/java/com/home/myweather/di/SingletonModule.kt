@@ -3,61 +3,48 @@ package com.home.myweather.di
 import com.home.myweather.BuildConfig
 import com.home.myweather.data.network.GeocodingApiService
 import com.home.myweather.data.network.WeatherApiService
-import okhttp3.Cache
-import okhttp3.Interceptor
-import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
+import com.home.myweather.data.repository.GeocodingRepository
+import com.home.myweather.data.repository.WeatherRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import okhttp3.Cache
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
 import okhttp3.logging.HttpLoggingInterceptor.Level
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.io.File
 import java.util.concurrent.TimeUnit
-import javax.inject.Qualifier
 import javax.inject.Singleton
 
 /**
- * Qualifiers for distinguishing between different Retrofit instances.
- */
-@Qualifier
-@Retention(AnnotationRetention.BINARY)
-annotation class WeatherApi
-
-@Qualifier
-@Retention(AnnotationRetention.BINARY)
-annotation class GeocodingApi
-
-/**
- * Network module providing OkHttpClient, Retrofit, and API services.
+ * Application module providing dependencies that are shared across the entire app.
+ * Available to all components including ViewModels.
  */
 @Module
 @InstallIn(SingletonComponent::class)
-object NetworkModule {
+object SingletonModule {
 
-    private const val TIMEOUT_SECONDS = 15L
-    private const val CACHE_SIZE_MB = 50L
-
+    // HTTP Logging
     @Provides
-    @Singleton
     fun provideHttpLoggingInterceptor(): HttpLoggingInterceptor {
         return HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) Level.BODY else Level.NONE
         }
     }
 
+    // OkHttpClient
     @Provides
-    @Singleton
     fun provideOkHttpClient(logInterceptor: HttpLoggingInterceptor): OkHttpClient {
         val cacheDir = File(System.getProperty("java.io.tmpdir"), "okhttp_cache")
-        val cache = Cache(cacheDir, CACHE_SIZE_MB * 1024 * 1024)
+        val cache = Cache(cacheDir, 50L * 1024 * 1024)
 
         return OkHttpClient.Builder()
-            .connectTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            .readTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            .writeTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .connectTimeout(15L, TimeUnit.SECONDS)
+            .readTimeout(15L, TimeUnit.SECONDS)
+            .writeTimeout(15L, TimeUnit.SECONDS)
             .cache(cache)
             .addInterceptor { chain ->
                 val original = chain.request()
@@ -71,9 +58,9 @@ object NetworkModule {
             .build()
     }
 
+    // Retrofit for Weather API
     @WeatherApi
     @Provides
-    @Singleton
     fun provideWeatherRetrofit(okHttpClient: OkHttpClient): Retrofit {
         return Retrofit.Builder()
             .baseUrl("https://api.open-meteo.com/")
@@ -82,9 +69,9 @@ object NetworkModule {
             .build()
     }
 
+    // Retrofit for Geocoding API
     @GeocodingApi
     @Provides
-    @Singleton
     fun provideGeocodingRetrofit(okHttpClient: OkHttpClient): Retrofit {
         return Retrofit.Builder()
             .baseUrl("https://geocoding-api.open-meteo.com/")
@@ -93,17 +80,36 @@ object NetworkModule {
             .build()
     }
 
+    // API Services - singleton scoped
+    @Singleton
     @WeatherApi
     @Provides
-    @Singleton
     fun provideWeatherApiService(@WeatherApi retrofit: Retrofit): WeatherApiService {
         return retrofit.create(WeatherApiService::class.java)
     }
 
+    @Singleton
     @GeocodingApi
     @Provides
-    @Singleton
     fun provideGeocodingApiService(@GeocodingApi retrofit: Retrofit): GeocodingApiService {
         return retrofit.create(GeocodingApiService::class.java)
+    }
+
+    // Repositories - singleton scoped
+    @Singleton
+    @Provides
+    fun provideGeocodingRepository(
+        @GeocodingApi geoService: GeocodingApiService
+    ): GeocodingRepository {
+        return GeocodingRepository(geoService)
+    }
+
+    @Singleton
+    @Provides
+    fun provideWeatherRepository(
+        @WeatherApi apiService: WeatherApiService,
+        geocodingRepository: GeocodingRepository
+    ): WeatherRepository {
+        return WeatherRepository(apiService, geocodingRepository)
     }
 }

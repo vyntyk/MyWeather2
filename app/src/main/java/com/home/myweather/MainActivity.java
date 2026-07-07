@@ -1,22 +1,15 @@
 package com.home.myweather;
 
 import android.os.Bundle;
-import android.view.View;
-import android.view.WindowInsets;
-import android.view.WindowInsetsController;
 import android.widget.Toast;
 import android.content.SharedPreferences;
-
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.splashscreen.SplashScreen;
 import androidx.viewpager2.widget.ViewPager2;
 import androidx.fragment.app.Fragment;
-import androidx.lifecycle.Lifecycle;
-
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.home.myweather.data.model.DailyData;
 import com.home.myweather.data.model.GeoLocation;
@@ -27,48 +20,43 @@ import com.home.myweather.ui.fragments.DayDetailFragment;
 import com.home.myweather.ui.fragments.ForecastFragment;
 import com.home.myweather.ui.fragments.MapFragment;
 import com.home.myweather.ui.fragments.NowFragment;
-import com.home.myweather.ui.fragments.CitiesFragment;
-import com.home.myweather.ui.fragments.SettingsFragment;
 import dagger.hilt.android.AndroidEntryPoint;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @AndroidEntryPoint
 public class MainActivity extends AppCompatActivity {
-
     private static final String STATE_SELECTED_PAGE = "selected_page";
     private static final String STATE_LAST_GEO = "last_geo";
     private static final String STATE_LAST_GEO_SOURCE = "last_geo_source";
 
     private BottomNavigationView bottomNav;
     private ViewPager2 viewPager;
+
     private LocationHelper locationHelper;
     private WeatherStorage weatherStorage;
+
     public GeoLocation lastGeo;
     public String lastGeoSource = "GPS";
+
     private MainPagerAdapter pagerAdapter;
     private int currentPage = 0;
-    private ForecastFragment forecastFragment;
-    private MapFragment mapFragment;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         SplashScreen.installSplashScreen(this);
-        
         applyStoredTheme();
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // Create LocationHelper and WeatherStorage manually since they require Activity context
         locationHelper = new LocationHelper(this);
-        locationHelper.init(this);
         weatherStorage = new WeatherStorage(this);
+        locationHelper.init(this);
 
         bottomNav = findViewById(R.id.bottom_nav);
         viewPager = findViewById(R.id.view_pager);
 
         if (savedInstanceState != null) {
-            lastGeo = (GeoLocation) savedInstanceState.getSerializable(STATE_LAST_GEO);
+            lastGeo = savedInstanceState.getParcelable(STATE_LAST_GEO);
             lastGeoSource = savedInstanceState.getString(STATE_LAST_GEO_SOURCE, "GPS");
             currentPage = savedInstanceState.getInt(STATE_SELECTED_PAGE, 0);
         } else {
@@ -78,13 +66,12 @@ public class MainActivity extends AppCompatActivity {
         pagerAdapter = new MainPagerAdapter(this);
         viewPager.setAdapter(pagerAdapter);
         viewPager.setPageTransformer(new com.home.myweather.ui.adapters.SmoothPageTransformer());
-        viewPager.setOffscreenPageLimit(4);
+        // Убран setOffscreenPageLimit(4) — ViewPager2 сам управляет жизненным циклом
 
         bottomNav.setOnItemSelectedListener(item -> {
             int position = getTabPositionFromItemId(item.getItemId());
             if (position >= 0 && position < pagerAdapter.getItemCount()) {
                 viewPager.setCurrentItem(position, false);
-                syncFragmentsAtPage(position);
                 return true;
             }
             return false;
@@ -100,14 +87,19 @@ public class MainActivity extends AppCompatActivity {
                     bottomNav.setSelectedItemId(navId);
                 }
                 syncFragmentsAtPage(position);
-                preloadAdjacentFragments(position);
             }
         });
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                if (viewPager.getCurrentItem() != 0) {
+                // Если открыт DayDetailFragment, закрыть его
+                if (findViewById(R.id.fragment_container).getVisibility() == android.view.View.VISIBLE) {
+                    getSupportFragmentManager().popBackStack();
+                    if (getSupportFragmentManager().getBackStackEntryCount() <= 1) {
+                        findViewById(R.id.fragment_container).setVisibility(android.view.View.GONE);
+                    }
+                } else if (viewPager.getCurrentItem() != 0) {
                     viewPager.setCurrentItem(0, true);
                 } else {
                     setEnabled(false);
@@ -118,9 +110,6 @@ public class MainActivity extends AppCompatActivity {
 
         viewPager.setCurrentItem(currentPage, false);
         syncFragmentsAtPage(currentPage);
-        preloadAdjacentFragments(currentPage);
-
-        hideSystemUI();
     }
 
     private void syncFragmentsAtPage(int position) {
@@ -131,42 +120,21 @@ public class MainActivity extends AppCompatActivity {
         MapFragment mf = getMapFragment();
 
         switch (position) {
-            case 0: // Now
+            case 0:
                 if (nf != null && nf.isAdded()) {
                     nf.loadWeatherByCoords(lastGeo.lat, lastGeo.lon);
                 }
                 break;
-            case 1: // Forecast
+            case 1:
                 if (ff != null && ff.isAdded()) {
-                    ff.setGeoLocation(lastGeo, lastGeoSource);
+                    ff.setGeoLocation(lastGeo);
                 }
                 break;
-            case 2: // Map
+            case 2:
                 if (mf != null && mf.isAdded()) {
                     mf.moveToLocation(lastGeo.lat, lastGeo.lon);
-                    mf.updateWeatherCard(null, lastGeo.name);
                 }
                 break;
-        }
-    }
-
-    private void preloadAdjacentFragments(int position) {
-        if (position == 0) {
-            // From Now, preload Forecast and Map
-            ForecastFragment ff = getForecastFragment();
-            MapFragment mf = getMapFragment();
-            if (ff != null && ff.isAdded() && lastGeo != null) {
-                ff.setGeoLocation(lastGeo, lastGeoSource);
-            }
-            if (mf != null && mf.isAdded() && lastGeo != null) {
-                mf.moveToLocation(lastGeo.lat, lastGeo.lon);
-            }
-        } else if (position == 1) {
-            // From Forecast, preload Map
-            MapFragment mf = getMapFragment();
-            if (mf != null && mf.isAdded() && lastGeo != null) {
-                mf.moveToLocation(lastGeo.lat, lastGeo.lon);
-            }
         }
     }
 
@@ -205,22 +173,15 @@ public class MainActivity extends AppCompatActivity {
                     lastGeo.lon = lon;
                     lastGeo.name = "GPS";
                     lastGeoSource = "GPS";
-                    
                     weatherStorage.saveGeo(lastGeo);
-                    
+
                     NowFragment nf = getNowFragment();
                     ForecastFragment ff = getForecastFragment();
                     MapFragment mf = getMapFragment();
-                    
-                    if (nf != null && nf.isAdded()) {
-                        nf.loadWeatherByCoords(lat, lon);
-                    }
-                    if (ff != null && ff.isAdded()) {
-                        ff.setGeoLocation(lastGeo, "GPS");
-                    }
-                    if (mf != null && mf.isAdded()) {
-                        mf.moveToLocation(lat, lon);
-                    }
+
+                    if (nf != null && nf.isAdded()) nf.loadWeatherByCoords(lat, lon);
+                    if (ff != null && ff.isAdded()) ff.setGeoLocation(lastGeo);
+                    if (mf != null && mf.isAdded()) mf.moveToLocation(lat, lon);
                 });
             }
 
@@ -233,12 +194,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void openDayDetail(DailyData day) {
+        if (day == null) return;
         DayDetailFragment fragment = DayDetailFragment.newInstance(day);
+        findViewById(R.id.fragment_container).setVisibility(android.view.View.VISIBLE);
         getSupportFragmentManager().beginTransaction()
                 .replace(R.id.fragment_container, fragment)
                 .addToBackStack(null)
                 .commit();
-        findViewById(R.id.fragment_container).setVisibility(View.VISIBLE);
     }
 
     public void loadWeatherFromFavoriteCity(String cityName) {
@@ -252,28 +214,22 @@ public class MainActivity extends AppCompatActivity {
         lastGeo = geo;
         lastGeoSource = source != null ? source : "GPS";
         weatherStorage.saveGeo(geo);
-        
+
         ForecastFragment ff = getForecastFragment();
         MapFragment mf = getMapFragment();
-        
-        if (ff != null && ff.isAdded()) {
-            ff.setGeoLocation(geo, source);
-        }
-        if (mf != null && mf.isAdded()) {
-            mf.moveToLocation(geo.lat, geo.lon);
-        }
+
+        if (ff != null && ff.isAdded()) ff.setGeoLocation(geo);
+        if (mf != null && mf.isAdded()) mf.moveToLocation(geo.lat, geo.lon);
     }
 
     public void refreshWeatherDisplay() {
         NowFragment nf = getNowFragment();
         ForecastFragment ff = getForecastFragment();
         MapFragment mf = getMapFragment();
-        
+
         if (nf != null) nf.refresh();
         if (ff != null) ff.refresh();
-        if (mf != null && lastGeo != null) {
-            mf.moveToLocation(lastGeo.lat, lastGeo.lon);
-        }
+        if (mf != null && lastGeo != null) mf.moveToLocation(lastGeo.lat, lastGeo.lon);
     }
 
     public GeoLocation getGeoLocation() {
@@ -301,30 +257,5 @@ public class MainActivity extends AppCompatActivity {
         if (lastGeo != null) outState.putSerializable(STATE_LAST_GEO, lastGeo);
         outState.putString(STATE_LAST_GEO_SOURCE, lastGeoSource);
         outState.putInt(STATE_SELECTED_PAGE, currentPage);
-    }
-
-    @Override
-    public void onWindowFocusChanged(boolean hasFocus) {
-        super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) hideSystemUI();
-    }
-
-    private void hideSystemUI() {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            WindowInsetsController c = getWindow().getInsetsController();
-            if (c != null) {
-                c.hide(WindowInsets.Type.systemBars());
-                c.setSystemBarsBehavior(
-                        WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
-            }
-        } else {
-            getWindow().getDecorView().setSystemUiVisibility(
-                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                            | View.SYSTEM_UI_FLAG_FULLSCREEN
-                            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                            | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
-        }
     }
 }

@@ -15,7 +15,6 @@ import javax.inject.Inject;
 public class GeocodingRepository {
     private final GeocodingApiService geoService;
 
-    @Inject
     public GeocodingRepository(GeocodingApiService geoService) {
         this.geoService = geoService;
     }
