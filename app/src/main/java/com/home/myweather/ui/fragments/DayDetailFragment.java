@@ -124,6 +124,11 @@ public class DayDetailFragment extends Fragment {
             btnBack.setOnClickListener(vv -> {
                 if (getActivity() != null) {
                     getActivity().getSupportFragmentManager().popBackStack();
+                    // Скрыть контейнер после закрытия фрагмента
+                    View fragmentContainer = getActivity().findViewById(R.id.fragment_container);
+                    if (fragmentContainer != null) {
+                        fragmentContainer.setVisibility(android.view.View.GONE);
+                    }
                 }
             });
         }

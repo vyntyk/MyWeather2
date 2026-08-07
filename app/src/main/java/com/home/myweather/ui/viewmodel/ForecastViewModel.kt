@@ -4,17 +4,16 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.home.myweather.data.model.GeoLocation
+import com.home.myweather.data.model.DailyData
 import com.home.myweather.data.model.ForecastResponse
 import com.home.myweather.data.repository.WeatherRepository
-import com.home.myweather.utils.ForecastGrouper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * ViewModel for ForecastFragment.
- * Manages 5-day forecast state.
+ * ViewModel для ForecastFragment.
+ * Управляет состоянием прогноза на 5 дней.
  */
 @HiltViewModel
 class ForecastViewModel @Inject constructor(
@@ -24,10 +23,10 @@ class ForecastViewModel @Inject constructor(
     private val _uiState = MutableLiveData<ForecastUiState>(ForecastUiState())
     val uiState: LiveData<ForecastUiState> = _uiState
     
-    private var currentGeo: GeoLocation? = null
-    private val forecastCache = mutableMapOf<String, List<com.home.myweather.data.model.DailyData>>()
+    private var currentGeo: com.home.myweather.data.model.GeoLocation? = null
+    private val forecastCache = mutableMapOf<String, List<DailyData>>()
     
-    fun setGeoLocation(geo: GeoLocation) {
+    fun setGeoLocation(geo: com.home.myweather.data.model.GeoLocation) {
         currentGeo = geo
         loadForecast(geo.lat, geo.lon)
     }
@@ -35,7 +34,7 @@ class ForecastViewModel @Inject constructor(
     fun loadForecast(lat: Double, lon: Double) {
         val locationKey = "$lat,$lon"
         
-        // Check ForecastCache first (from NowFragment)
+        // Проверяем ForecastCache сначала (из NowFragment)
         val cachedItems = com.home.myweather.data.repository.ForecastCache.get(lat, lon)
         if (cachedItems != null && cachedItems.isNotEmpty()) {
             val grouped = com.home.myweather.utils.ForecastGrouper.groupByDay(cachedItems)
@@ -43,7 +42,7 @@ class ForecastViewModel @Inject constructor(
             return
         }
         
-        // Check local cache
+        // Проверяем локальный кэш
         val cached = forecastCache[locationKey]
         if (cached != null) {
             _uiState.postValue(ForecastUiState(days = cached, isLoading = false))
@@ -58,7 +57,7 @@ class ForecastViewModel @Inject constructor(
                     val items = forecast.list ?: emptyList()
                     val grouped = com.home.myweather.utils.ForecastGrouper.groupByDay(items)
                     
-                    // Cache the result
+                    // Кэшируем результат
                     forecastCache[locationKey] = grouped
                     
                     _uiState.postValue(
@@ -88,6 +87,14 @@ class ForecastViewModel @Inject constructor(
         }
     }
     
+    fun getCachedDays(): List<DailyData> {
+        currentGeo?.let { geo ->
+            val locationKey = "${geo.lat},${geo.lon}"
+            return forecastCache[locationKey] ?: emptyList()
+        }
+        return emptyList()
+    }
+    
     override fun onCleared() {
         super.onCleared()
         forecastCache.clear()
@@ -95,10 +102,10 @@ class ForecastViewModel @Inject constructor(
 }
 
 /**
- * UI state for Forecast screen.
+ * Состояние UI для экрана прогноза.
  */
 data class ForecastUiState(
-    val days: List<com.home.myweather.data.model.DailyData> = emptyList(),
+    val days: List<DailyData> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null
 )

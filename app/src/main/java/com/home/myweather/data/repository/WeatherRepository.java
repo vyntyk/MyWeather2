@@ -13,7 +13,6 @@ import com.home.myweather.data.model.OpenMeteoForecastResponse;
 import com.home.myweather.data.model.WeatherResponse;
 import com.home.myweather.data.network.WeatherApiService;
 import javax.inject.Inject;
-import javax.inject.Singleton;
 
 /**
  * Репозиторий погоды на базе Open-Meteo.
@@ -23,7 +22,6 @@ import javax.inject.Singleton;
  *
  * API-ключ не нужен. Open-Meteo используется для текущей погоды и прогноза.
  */
-@Singleton
 public class WeatherRepository {
 
     // ── Параметры запроса ─────────────────────────────────────────────────
@@ -66,7 +64,6 @@ public class WeatherRepository {
 
     // ── Конструктор с внедрением зависимостей ────────────────────────────
 
-    @Inject
     public WeatherRepository(WeatherApiService apiService, GeocodingRepository geocoding) {
         this.apiService = apiService;
         this.geocoding = geocoding;
@@ -121,6 +118,43 @@ public class WeatherRepository {
             rid = ++requestId; 
         }
         fetchCurrentWeather(geo, callback, rid);
+    }
+
+    /**
+     * Получить текущую погоду по координатам ПАРАЛЕЛЬНО (для карты).
+     * В отличие от {@link #fetchWeatherByCoords}, НЕ отменяет предыдущие запросы
+     * и НЕ трогает общий requestId — чтобы несколько запросов (метки температуры
+     * на карте) выполнялись одновременно и не отменяли друг друга.
+     */
+    public void fetchCurrentWeatherMarker(double lat, double lon, WeatherCallback callback) {
+        if (callback == null) throw new IllegalArgumentException("callback must not be null");
+        GeoLocation geo = new GeoLocation();
+        geo.lat = lat;
+        geo.lon = lon;
+        geo.name = "GPS";
+
+        final Call<OpenMeteoForecastResponse> call = buildForecastCall(lat, lon);
+        call.enqueue(new Callback<OpenMeteoForecastResponse>() {
+            @Override
+            public void onResponse(Call<OpenMeteoForecastResponse> c,
+                                   Response<OpenMeteoForecastResponse> r) {
+                if (c.isCanceled()) return;
+                OpenMeteoForecastResponse body = r.body();
+                if (!r.isSuccessful() || body == null || body.current == null) {
+                    callback.onError("Ошибка погоды (код " + r.code() + ")");
+                    return;
+                }
+                WeatherResponse wr = OpenMeteoMapper.toWeatherResponse(body, geo);
+                callback.onSuccess(wr, geo);
+            }
+
+            @Override
+            public void onFailure(Call<OpenMeteoForecastResponse> c, Throwable t) {
+                if (!c.isCanceled()) {
+                    callback.onError(networkError(t));
+                }
+            }
+        });
     }
 
     /**

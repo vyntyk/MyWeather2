@@ -4,18 +4,17 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.home.myweather.data.model.ForecastResponse
+import com.home.myweather.data.model.ForecastItem
 import com.home.myweather.data.model.GeoLocation
 import com.home.myweather.data.model.WeatherResponse
 import com.home.myweather.data.repository.WeatherRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * ViewModel for NowFragment.
- * Manages weather state and coordinates with WeatherRepository.
+ * ViewModel для NowFragment.
+ * Управляет состоянием погоды и работает с WeatherRepository.
  */
 @HiltViewModel
 class NowViewModel @Inject constructor(
@@ -23,10 +22,15 @@ class NowViewModel @Inject constructor(
 ) : ViewModel() {
     
     private val _uiState = MutableLiveData<WeatherUiState>(WeatherUiState())
+    @JvmField
     val uiState: LiveData<WeatherUiState> = _uiState
     
+    private val _hourlyForecast = MutableLiveData<List<ForecastItem>>(emptyList())
+    @JvmField
+    val hourlyForecast: LiveData<List<ForecastItem>> = _hourlyForecast
+    
+    @JvmField
     var lastGeo: GeoLocation? = null
-        private set
     
     fun fetchWeatherByCoords(lat: Double, lon: Double) {
         _uiState.postValue(WeatherUiState(isLoading = true, error = null))
@@ -57,12 +61,11 @@ class NowViewModel @Inject constructor(
         }
     }
     
-    @JvmOverloads
-    fun fetchWeatherByCity(city: String, country: String? = null) {
+    fun fetchWeatherByCity(city: String) {
         _uiState.postValue(WeatherUiState(isLoading = true, error = null))
         
         viewModelScope.launch {
-            weatherRepository.fetchWeather(city, country, object : WeatherRepository.WeatherCallback {
+            weatherRepository.fetchWeather(city, null, object : WeatherRepository.WeatherCallback {
                 override fun onSuccess(weather: WeatherResponse, geo: GeoLocation) {
                     lastGeo = geo
                     _uiState.postValue(
@@ -91,11 +94,13 @@ class NowViewModel @Inject constructor(
         viewModelScope.launch {
             weatherRepository.fetchForecast(lat, lon, object : WeatherRepository.ForecastCallback {
                 override fun onSuccess(forecast: com.home.myweather.data.model.ForecastResponse) {
-                    // Forecast is cached, no need to update UI state
+                    val items = forecast.list ?: emptyList()
+                    val first24Hours = if (items.size > 24) items.subList(0, 24) else items
+                    _hourlyForecast.postValue(first24Hours)
                 }
                 
                 override fun onError(message: String) {
-                    // Silent error handling for forecast
+                    // Тихая обработка ошибки
                 }
             })
         }
@@ -107,19 +112,17 @@ class NowViewModel @Inject constructor(
         }
     }
     
-    fun getWeatherRepository(): WeatherRepository = weatherRepository
-    
     fun clearRequests() {
         weatherRepository.cancelPendingRequests()
     }
 }
 
 /**
- * UI state for Weather screen.
+ * Состояние UI для экрана погоды.
  */
 data class WeatherUiState(
-    val weather: WeatherResponse? = null,
-    val geo: GeoLocation? = null,
-    val isLoading: Boolean = false,
-    val error: String? = null
+    @JvmField val weather: WeatherResponse? = null,
+    @JvmField val geo: GeoLocation? = null,
+    @JvmField val isLoading: Boolean = false,
+    @JvmField val error: String? = null
 )

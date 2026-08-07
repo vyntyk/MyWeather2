@@ -4,18 +4,17 @@ import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.annotation.NonNull
 import androidx.cardview.widget.CardView
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.home.myweather.BuildConfig
 import com.home.myweather.MainActivity
 import com.home.myweather.R
 import com.home.myweather.data.model.GeoLocation
@@ -26,6 +25,7 @@ import com.home.myweather.utils.AppPreferences
 import com.home.myweather.utils.TemperatureConverter
 import com.home.myweather.utils.WeatherIcon
 import com.home.myweather.utils.WeatherTileLayer
+import kotlinx.coroutines.*
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
@@ -42,10 +42,10 @@ import org.maplibre.android.style.layers.RasterLayer
 import org.maplibre.android.style.sources.RasterSource
 import org.maplibre.android.style.sources.TileSet
 import dagger.hilt.android.AndroidEntryPoint
-import java.util.*
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executors
+import java.util.Locale
 import javax.inject.Inject
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 
 @AndroidEntryPoint
 class MapFragment : Fragment(), OnMapReadyCallback {
@@ -57,6 +57,9 @@ class MapFragment : Fragment(), OnMapReadyCallback {
         private const val OSM_STYLE_URL =
             "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
         private const val TEMP_ICON_ID = "temp_label_icon"
+        private const val STATE_LAYER = "active_layer"
+        private const val STATE_LAT = "last_lat"
+        private const val STATE_LON = "last_lon"
 
         private val CITIES = arrayOf(
             doubleArrayOf(55.751244, 37.618423),
@@ -77,17 +80,15 @@ class MapFragment : Fragment(), OnMapReadyCallback {
     private var activeLayer: WeatherTileLayer.Layer? = null
     private var symbolManager: SymbolManager? = null
     private val tempSymbols = mutableListOf<Symbol>()
-    private var executor = Executors.newFixedThreadPool(4)
-    private val mainHandler = Handler(Looper.getMainLooper())
+    private var isViewCreated = false
+    private var loadMarkersJob: Job? = null
 
-    // Buttons for layers
     private var btnNone: TextView? = null
     private var btnTemp: TextView? = null
     private var btnPrecip: TextView? = null
     private var btnClouds: TextView? = null
     private var btnWind: TextView? = null
 
-    // Weather card
     private var cardWeatherInfo: CardView? = null
     private var mapWeatherIcon: ImageView? = null
     private var mapCityName: TextView? = null
@@ -96,16 +97,20 @@ class MapFragment : Fragment(), OnMapReadyCallback {
     private var mapWind: TextView? = null
     private var mapHumidity: TextView? = null
 
-    // Legend
     private var cardLegend: CardView? = null
     private var legendContainer: LinearLayout? = null
 
     private var lastLat = DEFAULT_LAT
     private var lastLon = DEFAULT_LON
+    private var cachedWeather: WeatherResponse? = null
+    private var cachedCityName: String? = null
 
+    // ✅ Убираем @Inject для weatherStorage и appPreferences - они не могут быть предоставлены через Hilt
+    // Вместо этого создаем их вручную в onCreateView
     @Inject
     lateinit var weatherRepository: WeatherRepository
 
+    // weatherStorage и appPreferences будут созданы в onCreateView
     private lateinit var weatherStorage: WeatherStorage
     private lateinit var appPreferences: AppPreferences
 
@@ -114,11 +119,12 @@ class MapFragment : Fragment(), OnMapReadyCallback {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
+        // Создаем зависимости которые не могут быть предоставлены через Hilt
+        weatherStorage = WeatherStorage(requireContext())
+        appPreferences = AppPreferences(requireContext().applicationContext)
+        
         MapLibre.getInstance(requireContext())
         val v = inflater.inflate(R.layout.fragment_map, container, false)
-
-        appPreferences = AppPreferences(requireContext())
-        weatherStorage = WeatherStorage(requireContext())
 
         mapView = v.findViewById(R.id.map_view)
         mapView?.onCreate(savedInstanceState)
@@ -129,23 +135,39 @@ class MapFragment : Fragment(), OnMapReadyCallback {
         initWeatherCard(v)
         initLegend(v)
 
-        // Show saved weather if exists
-        val saved = weatherStorage.loadWeather()
-        if (saved != null) {
-            val geo = weatherStorage.loadGeo()
-            showWeatherCard(saved, geo?.name)
-            geo?.let {
-                moveToLocation(it.lat, it.lon)
-            }
-        }
-        
-        // If no geo location, try to get it from MainActivity
-        if (lastLat == DEFAULT_LAT && lastLon == DEFAULT_LON) {
-            (activity as? MainActivity)?.lastGeo?.let { geo ->
-                moveToLocation(geo.lat, geo.lon)
+        if (savedInstanceState != null) {
+            lastLat = savedInstanceState.getDouble(STATE_LAT, DEFAULT_LAT)
+            lastLon = savedInstanceState.getDouble(STATE_LON, DEFAULT_LON)
+            val layerName = savedInstanceState.getString(STATE_LAYER)
+            activeLayer = layerName?.let {
+                try {
+                    WeatherTileLayer.Layer.valueOf(it)
+                } catch (e: Exception) {
+                    null
+                }
             }
         }
 
+        val saved = weatherStorage.loadWeather()
+        if (saved != null) {
+            val geo = weatherStorage.loadGeo()
+            cachedWeather = saved
+            cachedCityName = geo?.name
+            if (isViewCreated) {
+                showWeatherCard(saved, geo?.name)
+            }
+            geo?.let {
+                lastLat = it.lat
+                lastLon = it.lon
+            }
+        }
+
+        (activity as? MainActivity)?.lastGeo?.let { geo ->
+            lastLat = geo.lat
+            lastLon = geo.lon
+        }
+
+        isViewCreated = true
         return v
     }
 
@@ -166,9 +188,7 @@ class MapFragment : Fragment(), OnMapReadyCallback {
     private fun initLocationButton(v: View) {
         val fab = v.findViewById<FloatingActionButton>(R.id.fab_my_location)
         fab.setOnClickListener {
-            if (requireActivity() is MainActivity) {
-                (requireActivity() as MainActivity).requestGeoLocation()
-            }
+            (activity as? MainActivity)?.requestGeoLocation()
         }
     }
 
@@ -189,18 +209,22 @@ class MapFragment : Fragment(), OnMapReadyCallback {
 
     override fun onMapReady(map: MapLibreMap) {
         mapLibreMap = map
-
-        map.setStyle(
-            Style.Builder().fromUri(OSM_STYLE_URL)
-        ) { style ->
-            symbolManager = SymbolManager(mapView!!, map, style)
-            symbolManager?.setIconAllowOverlap(true)
-            symbolManager?.setTextAllowOverlap(true)
-
-            when (activeLayer) {
-                WeatherTileLayer.Layer.TEMPERATURE -> loadTemperatureMarkers()
-                else -> activeLayer?.let { addOWMLayer(style, it) }
+        map.setStyle(Style.Builder().fromUri(OSM_STYLE_URL)) { style ->
+            mapView?.let { mv ->
+                symbolManager = SymbolManager(mv, map, style).apply {
+                    setIconAllowOverlap(true)
+                    setTextAllowOverlap(true)
+                }
             }
+
+            activeLayer?.let {
+                if (it == WeatherTileLayer.Layer.TEMPERATURE) {
+                    loadTemperatureMarkers()
+                } else {
+                    addOWMLayer(style, it)
+                }
+            }
+            updateButtonStates()
         }
 
         map.moveCamera(
@@ -212,43 +236,54 @@ class MapFragment : Fragment(), OnMapReadyCallback {
             )
         )
 
+        // Автозагрузка погоды для центра карты при открытии вкладки
+        fetchWeatherForPoint(lastLat, lastLon)
+
         map.uiSettings.setAllGesturesEnabled(true)
         map.uiSettings.setCompassEnabled(true)
         map.uiSettings.setAttributionEnabled(true)
-        map.uiSettings.isCompassEnabled = true
-        map.uiSettings.isAttributionEnabled = true
 
-        // Click on map - show weather at point
         map.addOnMapClickListener { point ->
             fetchWeatherForPoint(point.latitude, point.longitude)
             true
         }
     }
 
-    /** Requests weather for a point on the map via WeatherRepository. */
     private fun fetchWeatherForPoint(lat: Double, lon: Double) {
-        weatherRepository.fetchWeatherByCoords(
-            lat, lon,
-            object : WeatherRepository.WeatherCallback {
-                override fun onSuccess(w: WeatherResponse?, geo: GeoLocation?) {
-                    mainHandler.post {
-                        if (isAdded) {
-                            val cityName = geo?.name ?: w?.name ?: ""
-                            w?.let { showWeatherCard(it, cityName) }
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val result = suspendCoroutine<Pair<WeatherResponse?, GeoLocation?>> { cont ->
+                    weatherRepository.fetchWeatherByCoords(
+                        lat, lon,
+                        object : WeatherRepository.WeatherCallback {
+                            override fun onSuccess(w: WeatherResponse?, geo: GeoLocation?) {
+                                cont.resume(Pair(w, geo))
+                            }
+
+                            override fun onError(message: String) {
+                                cont.resume(Pair(null, null))
+                            }
                         }
+                    )
+                }
+
+                if (isAdded) {
+                    val (w, geo) = result
+                    val cityName = geo?.name ?: w?.name ?: ""
+                    w?.let {
+                        cachedWeather = it
+                        cachedCityName = cityName
+                        showWeatherCard(it, cityName)
                     }
                 }
-
-                override fun onError(message: String) {
-                    // Silently handle error on map click
-                }
+            } catch (e: CancellationException) {
+                // Job отменён
             }
-        )
+        }
     }
 
-    /** Fills and shows the weather card. */
     private fun showWeatherCard(w: WeatherResponse?, cityName: String?) {
-        if (w == null || w.main == null || cardWeatherInfo == null) return
+        if (!isViewCreated || w == null || w.main == null || cardWeatherInfo == null) return
 
         if (!cityName.isNullOrEmpty()) {
             mapCityName?.text = cityName
@@ -257,8 +292,6 @@ class MapFragment : Fragment(), OnMapReadyCallback {
         }
 
         val tempUnit = appPreferences.getTempUnit()
-
-        // Use TemperatureConverter for correct formatting
         mapTemp?.text = TemperatureConverter.formatWhole(w.main.temp, tempUnit)
 
         val wc = w.weather
@@ -270,8 +303,8 @@ class MapFragment : Fragment(), OnMapReadyCallback {
         if (w.wind != null) {
             mapWind?.text = "💨 " + String.format(Locale.US, "%.1f м/с", w.wind.speed)
         }
-        mapHumidity?.text = "💧 " + w.main.humidity + "%"
 
+        mapHumidity?.text = "💧 ${w.main.humidity}%"
         cardWeatherInfo?.visibility = View.VISIBLE
     }
 
@@ -288,6 +321,7 @@ class MapFragment : Fragment(), OnMapReadyCallback {
                 removeOWMLayer(style, layer)
             }
         }
+
         clearTemperatureMarkers()
 
         when (newLayer) {
@@ -312,24 +346,20 @@ class MapFragment : Fragment(), OnMapReadyCallback {
                 orientation = LinearLayout.HORIZONTAL
                 setPadding(0, 2, 0, 2)
             }
-
             val dot = View(requireContext()).apply {
-                val lp = LinearLayout.LayoutParams(16, 16)
-                lp.setMarginEnd(8)
-                layoutParams = lp
+                layoutParams = LinearLayout.LayoutParams(16, 16).apply { marginEnd = 8 }
                 setBackgroundColor(Color.parseColor(entry[0]))
             }
-
             val label = TextView(requireContext()).apply {
                 text = entry[1]
                 textSize = 10f
                 setTextColor(Color.parseColor("#1E293B"))
             }
-
             row.addView(dot)
             row.addView(label)
             container.addView(row)
         }
+
         legend.visibility = View.VISIBLE
     }
 
@@ -360,15 +390,14 @@ class MapFragment : Fragment(), OnMapReadyCallback {
     private fun addOWMLayer(style: Style, layer: WeatherTileLayer.Layer) {
         val sourceId = WeatherTileLayer.sourceId(layer)
         val layerId = WeatherTileLayer.layerId(layer)
-        val tileUrl = WeatherTileLayer.tileUrl(layer, "")
+        val tileUrl = WeatherTileLayer.tileUrl(layer, BuildConfig.OPENWEATHER_API_KEY)
 
         if (style.getSource(sourceId) == null) {
             val tileSet = TileSet("2.2.0", tileUrl).apply {
                 maxZoom = 12f
                 minZoom = 0f
             }
-            val source = RasterSource(sourceId, tileSet, 256)
-            style.addSource(source)
+            style.addSource(RasterSource(sourceId, tileSet, 256))
         }
 
         if (style.getLayer(layerId) == null) {
@@ -377,9 +406,10 @@ class MapFragment : Fragment(), OnMapReadyCallback {
                 WeatherTileLayer.Layer.PRECIPITATION -> 0.95f
                 else -> 0.8f
             }
-            val rasterLayer = RasterLayer(layerId, sourceId)
-            rasterLayer.setProperties(PropertyFactory.rasterOpacity(opacity))
-            style.addLayer(rasterLayer)
+            RasterLayer(layerId, sourceId).apply {
+                setProperties(PropertyFactory.rasterOpacity(opacity))
+                style.addLayer(this)
+            }
         }
     }
 
@@ -391,75 +421,68 @@ class MapFragment : Fragment(), OnMapReadyCallback {
     }
 
     private fun loadTemperatureMarkers() {
-        val manager = symbolManager ?: return
+        if (symbolManager == null) return
 
-        if (executor == null || executor?.isShutdown == true) {
-            executor = Executors.newFixedThreadPool(4)
-        }
+        loadMarkersJob?.cancel()
 
-        executor?.execute {
-            val latch = CountDownLatch(CITIES.size)
-            val results = Collections.synchronizedList(mutableListOf<DoubleArray>())
+        loadMarkersJob = viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val deferredList = CITIES.map { city ->
+                    async {
+                        suspendCoroutine<DoubleArray?> { cont ->
+                            weatherRepository.fetchCurrentWeatherMarker(
+                                city[0], city[1],
+                                object : WeatherRepository.WeatherCallback {
+                                    override fun onSuccess(w: WeatherResponse?, geo: GeoLocation?) {
+                                        val result = if (w?.main != null) {
+                                            doubleArrayOf(city[0], city[1], w.main.temp)
+                                        } else null
+                                        cont.resume(result)
+                                    }
 
-            for (city in CITIES) {
-                val lat = city[0]
-                val lon = city[1]
-
-                weatherRepository.fetchWeatherByCoords(
-                    lat, lon,
-                    object : WeatherRepository.WeatherCallback {
-                        override fun onSuccess(w: WeatherResponse?, geo: GeoLocation?) {
-                            try {
-                                if (w != null && w.main != null) {
-                                    results.add(doubleArrayOf(lat, lon, w.main.temp))
+                                    override fun onError(message: String) {
+                                        cont.resume(null)
+                                    }
                                 }
-                            } finally {
-                                latch.countDown()
-                            }
-                        }
-
-                        override fun onError(message: String) {
-                            latch.countDown()
+                            )
                         }
                     }
-                )
-            }
-
-            try {
-                latch.await()
-            } catch (e: InterruptedException) {
-                Thread.currentThread().interrupt()
-                return@execute
-            }
-
-            mainHandler.post {
-                if (!isAdded || symbolManager == null) return@post
-                clearTemperatureMarkers()
-
-                val style = mapLibreMap?.style
-                if (style == null) return@post
-
-                if (style.getImage(TEMP_ICON_ID) == null) {
-                    style.addImage(TEMP_ICON_ID, createTransparentBitmap())
                 }
 
-                val tempUnit = appPreferences.getTempUnit()
-                for (r in results) {
-                    val text = TemperatureConverter.formatWhole(r[2], tempUnit)
-                    tempSymbols.add(
-                        symbolManager!!.create(
-                            SymbolOptions()
-                                .withLatLng(LatLng(r[0], r[1]))
-                                .withIconImage(TEMP_ICON_ID)
-                                .withTextField(text)
-                                .withTextSize(14f)
-                                .withTextColor(tempColor(r[2]))
-                                .withTextHaloColor("rgba(255,255,255,1)")
-                                .withTextHaloWidth(2f)
-                                .withTextOffset(arrayOf(0f, 0f))
+                val results = deferredList.awaitAll().filterNotNull()
+
+                withContext(Dispatchers.Main) {
+                    if (!isAdded || symbolManager == null || !isViewCreated) return@withContext
+
+                    clearTemperatureMarkers()
+                    val style = mapLibreMap?.style ?: return@withContext
+
+                    if (style.getImage(TEMP_ICON_ID) == null) {
+                        style.addImage(TEMP_ICON_ID, createTransparentBitmap())
+                    }
+
+                    val tempUnit = appPreferences.getTempUnit()
+                    for (r in results) {
+                        val text = TemperatureConverter.formatWhole(r[2], tempUnit)
+                        tempSymbols.add(
+                            symbolManager!!.create(
+                                SymbolOptions()
+                                    .withLatLng(LatLng(r[0], r[1]))
+                                    .withIconImage(TEMP_ICON_ID)
+                                    .withTextField(text)
+                                    .withTextSize(14f)
+                                    .withTextColor(tempColor(r[2]))
+                                    .withTextHaloColor("rgba(255,255,255,1)")
+                                    .withTextHaloWidth(2f)
+                                    .withTextOffset(arrayOf(0f, 0f))
+                            )
                         )
-                    )
+                    }
                 }
+            } catch (e: CancellationException) {
+                // Игнорируем
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }
@@ -514,11 +537,19 @@ class MapFragment : Fragment(), OnMapReadyCallback {
                     .build()
             ), 800
         )
+
+        // Погода для нового центра карты (переключение вкладки/GPS)
+        fetchWeatherForPoint(lat, lon)
     }
 
-    // Update weather card from outside (from MainActivity)
     fun updateWeatherCard(w: WeatherResponse?, cityName: String?) {
-        if (isAdded) w?.let { showWeatherCard(it, cityName) }
+        if (isAdded && isViewCreated) {
+            w?.let {
+                cachedWeather = it
+                cachedCityName = cityName
+                showWeatherCard(it, cityName)
+            }
+        }
     }
 
     override fun onStart() {
@@ -529,6 +560,7 @@ class MapFragment : Fragment(), OnMapReadyCallback {
     override fun onResume() {
         super.onResume()
         mapView?.onResume()
+        cachedWeather?.let { showWeatherCard(it, cachedCityName) }
     }
 
     override fun onPause() {
@@ -541,20 +573,31 @@ class MapFragment : Fragment(), OnMapReadyCallback {
         mapView?.onStop()
     }
 
-    override fun onSaveInstanceState(@NonNull outState: Bundle) {
+    override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         mapView?.onSaveInstanceState(outState)
+        outState.putDouble(STATE_LAT, lastLat)
+        outState.putDouble(STATE_LON, lastLon)
+        activeLayer?.let { outState.putString(STATE_LAYER, it.name) }
     }
 
+    // ✅ ВАЖНО: mapView.onDestroy() вызывается здесь, а НЕ в onDestroyView()
     override fun onDestroyView() {
         super.onDestroyView()
-        mapView?.onDestroy()
-        executor?.shutdownNow()
-        executor = null
+        isViewCreated = false
+        // Отменяем все coroutines при уничтожении View
+        loadMarkersJob?.cancel()
+        loadMarkersJob = null
+        symbolManager = null
     }
 
     override fun onLowMemory() {
         super.onLowMemory()
         mapView?.onLowMemory()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        mapView?.onDestroy()
     }
 }

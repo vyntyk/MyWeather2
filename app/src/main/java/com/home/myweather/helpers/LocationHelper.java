@@ -2,14 +2,17 @@ package com.home.myweather.helpers;
 
 import android.annotation.SuppressLint;
 import android.content.pm.PackageManager;
-import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.fragment.app.Fragment;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
+
+import javax.inject.Inject;
 
 /**
  * Отвечает за запрос разрешений геолокации и получение текущих координат.
@@ -26,27 +29,52 @@ public class LocationHelper {
     private final FusedLocationProviderClient fusedClient;
     private Callback pendingCallback;
 
-    private final ActivityResultLauncher<String[]> permissionLauncher;
+    private ActivityResultLauncher<String[]> permissionLauncher;
 
-    public LocationHelper(AppCompatActivity activity) {
-        this.activity    = activity;
+    public LocationHelper(@NonNull AppCompatActivity activity) {
+        this.activity = activity;
         this.fusedClient = LocationServices.getFusedLocationProviderClient(activity);
+    }
 
-        permissionLauncher = activity.registerForActivityResult(
-                new ActivityResultContracts.RequestMultiplePermissions(),
-                permissions -> {
-                    boolean granted =
-                            Boolean.TRUE.equals(permissions.get(android.Manifest.permission.ACCESS_FINE_LOCATION))
-                            || Boolean.TRUE.equals(permissions.get(android.Manifest.permission.ACCESS_COARSE_LOCATION));
-                    if (granted && pendingCallback != null) {
-                        getLocation(pendingCallback);
-                    } else if (pendingCallback != null) {
-                        pendingCallback.onError("Разрешение на геолокацию отклонено");
-                    }
-                });
+    public void init(Fragment fragment) {
+        if (permissionLauncher == null) {
+            permissionLauncher = fragment.registerForActivityResult(
+                    new ActivityResultContracts.RequestMultiplePermissions(),
+                    permissions -> {
+                        boolean granted =
+                                Boolean.TRUE.equals(permissions.get(android.Manifest.permission.ACCESS_FINE_LOCATION))
+                                        || Boolean.TRUE.equals(permissions.get(android.Manifest.permission.ACCESS_COARSE_LOCATION));
+                        if (granted && pendingCallback != null) {
+                            getLocation(pendingCallback);
+                        } else if (pendingCallback != null) {
+                            pendingCallback.onError("Разрешение на геолокацию отклонено");
+                        }
+                    });
+        }
+    }
+
+    public void init(AppCompatActivity activity) {
+        if (permissionLauncher == null) {
+            permissionLauncher = activity.registerForActivityResult(
+                    new ActivityResultContracts.RequestMultiplePermissions(),
+                    permissions -> {
+                        boolean granted =
+                                Boolean.TRUE.equals(permissions.get(android.Manifest.permission.ACCESS_FINE_LOCATION))
+                                        || Boolean.TRUE.equals(permissions.get(android.Manifest.permission.ACCESS_COARSE_LOCATION));
+                        if (granted && pendingCallback != null) {
+                            getLocation(pendingCallback);
+                        } else if (pendingCallback != null) {
+                            pendingCallback.onError("Разрешение на геолокацию отклонено");
+                        }
+                    });
+        }
     }
 
     public void requestLocation(Callback callback) {
+        if (permissionLauncher == null) {
+            callback.onError("LocationHelper not initialized. Call init() first.");
+            return;
+        }
         boolean hasFine   = hasPermission(android.Manifest.permission.ACCESS_FINE_LOCATION);
         boolean hasCoarse = hasPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION);
         if (hasFine || hasCoarse) {

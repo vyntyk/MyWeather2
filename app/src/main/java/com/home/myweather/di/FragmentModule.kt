@@ -10,7 +10,6 @@ import com.home.myweather.ui.fragments.SettingsFragment
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.components.FragmentComponent
-import dagger.hilt.android.scopes.FragmentScoped
 
 /**
  * Fragment bindings for Hilt.
