@@ -14,6 +14,7 @@ import androidx.cardview.widget.CardView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.home.myweather.BuildConfig
 import com.home.myweather.MainActivity
 import com.home.myweather.R
 import com.home.myweather.data.model.GeoLocation
@@ -235,6 +236,9 @@ class MapFragment : Fragment(), OnMapReadyCallback {
             )
         )
 
+        // Автозагрузка погоды для центра карты при открытии вкладки
+        fetchWeatherForPoint(lastLat, lastLon)
+
         map.uiSettings.setAllGesturesEnabled(true)
         map.uiSettings.setCompassEnabled(true)
         map.uiSettings.setAttributionEnabled(true)
@@ -386,7 +390,7 @@ class MapFragment : Fragment(), OnMapReadyCallback {
     private fun addOWMLayer(style: Style, layer: WeatherTileLayer.Layer) {
         val sourceId = WeatherTileLayer.sourceId(layer)
         val layerId = WeatherTileLayer.layerId(layer)
-        val tileUrl = WeatherTileLayer.tileUrl(layer, "")
+        val tileUrl = WeatherTileLayer.tileUrl(layer, BuildConfig.OPENWEATHER_API_KEY)
 
         if (style.getSource(sourceId) == null) {
             val tileSet = TileSet("2.2.0", tileUrl).apply {
@@ -426,7 +430,7 @@ class MapFragment : Fragment(), OnMapReadyCallback {
                 val deferredList = CITIES.map { city ->
                     async {
                         suspendCoroutine<DoubleArray?> { cont ->
-                            weatherRepository.fetchWeatherByCoords(
+                            weatherRepository.fetchCurrentWeatherMarker(
                                 city[0], city[1],
                                 object : WeatherRepository.WeatherCallback {
                                     override fun onSuccess(w: WeatherResponse?, geo: GeoLocation?) {
@@ -533,6 +537,9 @@ class MapFragment : Fragment(), OnMapReadyCallback {
                     .build()
             ), 800
         )
+
+        // Погода для нового центра карты (переключение вкладки/GPS)
+        fetchWeatherForPoint(lat, lon)
     }
 
     fun updateWeatherCard(w: WeatherResponse?, cityName: String?) {

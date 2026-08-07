@@ -33,10 +33,10 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         debug {
-            buildConfigField "String", "OPENWEATHER_API_KEY", "\"demo\""
+            buildConfigField "String", "OPENWEATHER_API_KEY", "\"c75f904aad92a663cd1fc5b7a84d8eb7\""
         }
         release {
-            buildConfigField "String", "OPENWEATHER_API_KEY", "\"demo\""
+            buildConfigField "String", "OPENWEATHER_API_KEY", "\"c75f904aad92a663cd1fc5b7a84d8eb7\""
         }
     }
 

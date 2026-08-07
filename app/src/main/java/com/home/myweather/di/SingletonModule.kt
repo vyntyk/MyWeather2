@@ -1,6 +1,5 @@
 package com.home.myweather.di
 
-import com.home.myweather.BuildConfig
 import com.home.myweather.data.network.GeocodingApiService
 import com.home.myweather.data.network.WeatherApiService
 import com.home.myweather.data.repository.GeocodingRepository
@@ -13,6 +12,7 @@ import okhttp3.Cache
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import okhttp3.logging.HttpLoggingInterceptor.Level
+import org.maplibre.android.BuildConfig
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.io.File

@@ -121,6 +121,43 @@ public class WeatherRepository {
     }
 
     /**
+     * Получить текущую погоду по координатам ПАРАЛЕЛЬНО (для карты).
+     * В отличие от {@link #fetchWeatherByCoords}, НЕ отменяет предыдущие запросы
+     * и НЕ трогает общий requestId — чтобы несколько запросов (метки температуры
+     * на карте) выполнялись одновременно и не отменяли друг друга.
+     */
+    public void fetchCurrentWeatherMarker(double lat, double lon, WeatherCallback callback) {
+        if (callback == null) throw new IllegalArgumentException("callback must not be null");
+        GeoLocation geo = new GeoLocation();
+        geo.lat = lat;
+        geo.lon = lon;
+        geo.name = "GPS";
+
+        final Call<OpenMeteoForecastResponse> call = buildForecastCall(lat, lon);
+        call.enqueue(new Callback<OpenMeteoForecastResponse>() {
+            @Override
+            public void onResponse(Call<OpenMeteoForecastResponse> c,
+                                   Response<OpenMeteoForecastResponse> r) {
+                if (c.isCanceled()) return;
+                OpenMeteoForecastResponse body = r.body();
+                if (!r.isSuccessful() || body == null || body.current == null) {
+                    callback.onError("Ошибка погоды (код " + r.code() + ")");
+                    return;
+                }
+                WeatherResponse wr = OpenMeteoMapper.toWeatherResponse(body, geo);
+                callback.onSuccess(wr, geo);
+            }
+
+            @Override
+            public void onFailure(Call<OpenMeteoForecastResponse> c, Throwable t) {
+                if (!c.isCanceled()) {
+                    callback.onError(networkError(t));
+                }
+            }
+        });
+    }
+
+    /**
      * Получить почасовой прогноз на 7 дней.
      */
     public void fetchForecast(double lat, double lon, ForecastCallback callback) {
