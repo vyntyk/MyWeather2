@@ -67,4 +67,18 @@ public final class WeatherStorage {
         ed.putString(KEY_GEO, geo != null ? gson.toJson(geo) : null);
         ed.apply();
     }
+
+    /**
+     * Сохранить почасовой прогноз отдельно (когда текущая погода не обновлялась).
+     * Не трогает сохранённые текущую погоду и геолокацию.
+     */
+    public void saveForecast(List<ForecastItem> hourly) {
+        SharedPreferences.Editor ed = prefs.edit();
+        ed.putString(KEY_HOURLY, hourly != null ? gson.toJson(hourly) : null);
+        ed.apply();
+    }
+
+    public boolean hasHourly() {
+        return prefs.contains(KEY_HOURLY);
+    }
 }

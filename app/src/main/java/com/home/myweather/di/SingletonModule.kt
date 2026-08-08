@@ -1,12 +1,16 @@
 package com.home.myweather.di
 
+import android.content.Context
 import com.home.myweather.data.network.GeocodingApiService
 import com.home.myweather.data.network.WeatherApiService
 import com.home.myweather.data.repository.GeocodingRepository
 import com.home.myweather.data.repository.WeatherRepository
+import com.home.myweather.data.repository.WeatherStorage
+import com.home.myweather.helpers.NetworkMonitor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import okhttp3.Cache
 import okhttp3.OkHttpClient
@@ -106,10 +110,24 @@ object SingletonModule {
 
     @Singleton
     @Provides
+    fun provideWeatherStorage(@ApplicationContext context: Context): WeatherStorage {
+        return WeatherStorage(context)
+    }
+
+    @Singleton
+    @Provides
+    fun provideNetworkMonitor(@ApplicationContext context: Context): NetworkMonitor {
+        return NetworkMonitor(context)
+    }
+
+    @Singleton
+    @Provides
     fun provideWeatherRepository(
         @WeatherApi apiService: WeatherApiService,
-        geocodingRepository: GeocodingRepository
+        geocodingRepository: GeocodingRepository,
+        weatherStorage: WeatherStorage,
+        networkMonitor: NetworkMonitor
     ): WeatherRepository {
-        return WeatherRepository(apiService, geocodingRepository)
+        return WeatherRepository(apiService, geocodingRepository, weatherStorage, networkMonitor)
     }
 }

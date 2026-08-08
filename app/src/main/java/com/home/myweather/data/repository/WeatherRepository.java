@@ -12,6 +12,7 @@ import com.home.myweather.data.model.GeoLocation;
 import com.home.myweather.data.model.OpenMeteoForecastResponse;
 import com.home.myweather.data.model.WeatherResponse;
 import com.home.myweather.data.network.WeatherApiService;
+import com.home.myweather.helpers.NetworkMonitor;
 import javax.inject.Inject;
 
 /**
@@ -21,6 +22,11 @@ import javax.inject.Inject;
  * Использует OpenMeteoMapper для преобразования API-ответов в модели приложения.
  *
  * API-ключ не нужен. Open-Meteo используется для текущей погоды и прогноза.
+ *
+ * Оффлайн-режим: если сети нет, запрос к API не отправляется вовсе —
+ * пользователю отдаются данные из {@link WeatherStorage} (если они есть).
+ * Каждый успешный ответ API дополнительно сохраняется в WeatherStorage,
+ * чтобы прогноз «запоминался» между запусками приложения.
  */
 public class WeatherRepository {
 
@@ -56,6 +62,8 @@ public class WeatherRepository {
 
     private final WeatherApiService apiService;
     private final GeocodingRepository geocoding;
+    private final WeatherStorage weatherCache;
+    private final NetworkMonitor networkMonitor;
     private final Object lock = new Object();
 
     private Call<OpenMeteoForecastResponse> weatherCall;
@@ -64,9 +72,14 @@ public class WeatherRepository {
 
     // ── Конструктор с внедрением зависимостей ────────────────────────────
 
-    public WeatherRepository(WeatherApiService apiService, GeocodingRepository geocoding) {
+    public WeatherRepository(WeatherApiService apiService,
+                             GeocodingRepository geocoding,
+                             WeatherStorage weatherCache,
+                             NetworkMonitor networkMonitor) {
         this.apiService = apiService;
         this.geocoding = geocoding;
+        this.weatherCache = weatherCache;
+        this.networkMonitor = networkMonitor;
     }
 
     // ── Публичный API ─────────────────────────────────────────────────────
@@ -83,6 +96,18 @@ public class WeatherRepository {
         String query = (country != null && !country.trim().isEmpty())
                 ? city.trim() + "," + country.trim()
                 : city.trim();
+
+        // Оффлайн: запрос к API не отправляем, отдаём сохранённые данные
+        if (!isOnline()) {
+            WeatherResponse cachedWeather = weatherCache.loadWeather();
+            GeoLocation cachedGeo = weatherCache.loadGeo();
+            if (cachedWeather != null && cachedGeo != null) {
+                callback.onSuccess(cachedWeather, cachedGeo);
+            } else {
+                callback.onError("Нет интернета. Сохранённых данных пока нет — подключитесь к сети");
+            }
+            return;
+        }
 
         final long rid;
         synchronized (lock) { 
@@ -107,6 +132,19 @@ public class WeatherRepository {
      */
     public void fetchWeatherByCoords(double lat, double lon, WeatherCallback callback) {
         if (callback == null) throw new IllegalArgumentException("callback must not be null");
+
+        // Оффлайн: запрос к API не отправляем, отдаём сохранённые данные
+        if (!isOnline()) {
+            WeatherResponse cachedWeather = weatherCache.loadWeather();
+            GeoLocation cachedGeo = weatherCache.loadGeo();
+            if (cachedWeather != null && cachedGeo != null) {
+                callback.onSuccess(cachedWeather, cachedGeo);
+            } else {
+                callback.onError("Нет интернета. Сохранённых данных пока нет");
+            }
+            return;
+        }
+
         GeoLocation geo = new GeoLocation();
         geo.lat = lat;
         geo.lon = lon;
@@ -128,6 +166,13 @@ public class WeatherRepository {
      */
     public void fetchCurrentWeatherMarker(double lat, double lon, WeatherCallback callback) {
         if (callback == null) throw new IllegalArgumentException("callback must not be null");
+
+        // Оффлайн: метки температуры на карте не запрашиваем
+        if (!isOnline()) {
+            callback.onError("Нет интернета");
+            return;
+        }
+
         GeoLocation geo = new GeoLocation();
         geo.lat = lat;
         geo.lon = lon;
@@ -163,6 +208,19 @@ public class WeatherRepository {
     public void fetchForecast(double lat, double lon, ForecastCallback callback) {
         if (callback == null) throw new IllegalArgumentException("callback must not be null");
 
+        // Оффлайн: запрос к API не отправляем, отдаём сохранённый прогноз
+        if (!isOnline()) {
+            java.util.ArrayList<ForecastItem> cached = weatherCache.loadHourly();
+            if (!cached.isEmpty()) {
+                ForecastResponse fr = new ForecastResponse();
+                fr.list = cached;
+                callback.onSuccess(fr);
+            } else {
+                callback.onError("Нет интернета. Сохранённого прогноза пока нет");
+            }
+            return;
+        }
+
         final long rid;
         synchronized (lock) { 
             cancelLocked();
@@ -188,6 +246,9 @@ public class WeatherRepository {
                 // Используем OpenMeteoMapper для преобразования
                 List<ForecastItem> items = OpenMeteoMapper.toForecastItems(body);
                 ForecastCache.put(lat, lon, items);
+
+                // Постоянно запоминаем прогноз для оффлайн-режима
+                weatherCache.saveForecast(items);
 
                 ForecastResponse fr = new ForecastResponse();
                 fr.list = items;
@@ -240,6 +301,9 @@ public class WeatherRepository {
 
                 // Используем OpenMeteoMapper для преобразования
                 WeatherResponse wr = OpenMeteoMapper.toWeatherResponse(body, geo);
+
+                // Постоянно запоминаем текущую погоду + прогноз для оффлайн-режима
+                weatherCache.save(wr, geo, items);
                 callback.onSuccess(wr, geo);
             }
 
@@ -263,6 +327,14 @@ public class WeatherRepository {
     }
 
     // ── Вспомогательные методы ────────────────────────────────────────────
+
+    /**
+     * @return true, если есть доступ в интернет.
+     * При отсутствии сети никакие запросы к API не отправляются.
+     */
+    private boolean isOnline() {
+        return networkMonitor != null && networkMonitor.isOnline();
+    }
 
     private void cancelLocked() {
         geocoding.cancel();
