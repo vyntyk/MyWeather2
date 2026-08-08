@@ -95,7 +95,12 @@ class NowViewModel @Inject constructor(
             weatherRepository.fetchForecast(lat, lon, object : WeatherRepository.ForecastCallback {
                 override fun onSuccess(forecast: com.home.myweather.data.model.ForecastResponse) {
                     val items = forecast.list ?: emptyList()
-                    val first24Hours = if (items.size > 24) items.subList(0, 24) else items
+                    // Синхронизируем прогноз с текущим временем: берём блоки, начиная
+                    // с текущего часа (блок, в котором мы сейчас находимся, включаем),
+                    // прошедшие часы отбрасываем — они «уходят влево».
+                    val nowSec = System.currentTimeMillis() / 1000L
+                    val fromNow = items.filter { it.timestamp + 3600L > nowSec }
+                    val first24Hours = if (fromNow.size > 24) fromNow.subList(0, 24) else fromNow
                     _hourlyForecast.postValue(first24Hours)
                 }
                 
