@@ -26,7 +26,14 @@ public final class NetworkMonitor {
     }
 
     /**
-     * @return true, если есть активная сеть с подтверждённым доступом в интернет.
+     * @return true, если есть активная сеть с доступом в интернет.
+     *
+     * Проверяем только NET_CAPABILITY_INTERNET, без VALIDATED:
+     * флаг VALIDATED часто ложно-отрицательный (только что подключённый
+     * Wi-Fi, каптивные порталы, эмулятор) — из-за него при живом интернете
+     * приложение считало бы себя оффлайн и не делало запросов. Реальная
+     * доступность API всё равно проверяется самим запросом: при сбое
+     * репозиторий отдаёт сохранённые данные.
      */
     public boolean isOnline() {
         if (connectivityManager == null) return false;
@@ -34,7 +41,6 @@ public final class NetworkMonitor {
         if (activeNetwork == null) return false;
         NetworkCapabilities caps = connectivityManager.getNetworkCapabilities(activeNetwork);
         return caps != null
-                && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+                && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
     }
 }

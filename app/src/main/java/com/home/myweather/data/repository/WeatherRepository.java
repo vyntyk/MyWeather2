@@ -239,6 +239,8 @@ public class WeatherRepository {
                 if (c.isCanceled() || rid != requestId) return;
                 OpenMeteoForecastResponse body = r.body();
                 if (!r.isSuccessful() || body == null || body.hourly == null) {
+                    // API вернул ошибку — отдаём сохранённый прогноз
+                    if (serveCachedForecast(callback)) return;
                     callback.onError("Ошибка прогноза (код " + r.code() + ")");
                     return;
                 }
@@ -258,6 +260,8 @@ public class WeatherRepository {
             @Override
             public void onFailure(Call<OpenMeteoForecastResponse> c, Throwable t) {
                 if (!c.isCanceled() && rid == requestId) {
+                    // Сеть «есть», но API недоступен: отдаём сохранённый прогноз.
+                    if (serveCachedForecast(callback)) return;
                     callback.onError(networkError(t));
                 }
             }
@@ -291,6 +295,8 @@ public class WeatherRepository {
                 if (c.isCanceled() || rid != requestId) return;
                 OpenMeteoForecastResponse body = r.body();
                 if (!r.isSuccessful() || body == null || body.current == null) {
+                    // API вернул ошибку — отдаём сохранённую погоду
+                    if (serveCachedWeather(callback)) return;
                     callback.onError("Ошибка погоды (код " + r.code() + ")");
                     return;
                 }
@@ -310,6 +316,9 @@ public class WeatherRepository {
             @Override
             public void onFailure(Call<OpenMeteoForecastResponse> c, Throwable t) {
                 if (!c.isCanceled() && rid == requestId) {
+                    // Сеть «есть», но API недоступен: показываем сохранённые данные,
+                    // а не ошибку — прогноз должен оставаться доступным оффлайн.
+                    if (serveCachedWeather(callback)) return;
                     callback.onError(networkError(t));
                 }
             }
@@ -334,6 +343,33 @@ public class WeatherRepository {
      */
     private boolean isOnline() {
         return networkMonitor != null && networkMonitor.isOnline();
+    }
+
+    /**
+     * Попытаться отдать сохранённые данные текущей погоды.
+     *
+     * @return true, если кэш есть и вызывающему был доставлен onSuccess.
+     */
+    private boolean serveCachedWeather(WeatherCallback callback) {
+        WeatherResponse cachedWeather = weatherCache.loadWeather();
+        GeoLocation cachedGeo = weatherCache.loadGeo();
+        if (cachedWeather == null || cachedGeo == null) return false;
+        callback.onSuccess(cachedWeather, cachedGeo);
+        return true;
+    }
+
+    /**
+     * Попытаться отдать сохранённый прогноз.
+     *
+     * @return true, если кэш есть и вызывающему был доставлен onSuccess.
+     */
+    private boolean serveCachedForecast(ForecastCallback callback) {
+        java.util.ArrayList<ForecastItem> cached = weatherCache.loadHourly();
+        if (cached.isEmpty()) return false;
+        ForecastResponse fr = new ForecastResponse();
+        fr.list = cached;
+        callback.onSuccess(fr);
+        return true;
     }
 
     private void cancelLocked() {
