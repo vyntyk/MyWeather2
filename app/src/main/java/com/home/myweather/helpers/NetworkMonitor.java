@@ -4,6 +4,7 @@ import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
+import android.util.Log;
 
 import javax.inject.Inject;
 
@@ -15,6 +16,8 @@ import javax.inject.Inject;
  * данные, сохранённые в {@link com.home.myweather.data.repository.WeatherStorage}.
  */
 public final class NetworkMonitor {
+
+    private static final String TAG = "NetworkMonitor";
 
     private final ConnectivityManager connectivityManager;
 
@@ -36,11 +39,31 @@ public final class NetworkMonitor {
      * репозиторий отдаёт сохранённые данные.
      */
     public boolean isOnline() {
-        if (connectivityManager == null) return false;
+        if (connectivityManager == null) {
+            Log.w(TAG, "ConnectivityManager is null");
+            return false;
+        }
         Network activeNetwork = connectivityManager.getActiveNetwork();
-        if (activeNetwork == null) return false;
+        if (activeNetwork == null) {
+            Log.w(TAG, "No active network");
+            return false;
+        }
         NetworkCapabilities caps = connectivityManager.getNetworkCapabilities(activeNetwork);
-        return caps != null
+        boolean hasInternet = caps != null
                 && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+        
+        Log.d(TAG, "isOnline: activeNetwork=" + activeNetwork
+                        + ", caps=" + caps
+                        + ", hasInternet=" + hasInternet
+                        + ", transports=" + (caps != null ? caps.toString() : "null"));
+        
+        // Fallback: если capabilities не определились, но сеть есть — 
+        // разрешаем запрос, реальная ошибка API обработается в репозитории
+        if (!hasInternet && caps != null) {
+            Log.w(TAG, "NET_CAPABILITY_INTERNET not set, but network exists — allowing request");
+            return true;
+        }
+        
+        return hasInternet;
     }
 }

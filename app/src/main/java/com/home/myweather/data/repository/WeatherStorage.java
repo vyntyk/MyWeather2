@@ -2,6 +2,7 @@ package com.home.myweather.data.repository;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.util.Log;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -26,6 +27,8 @@ public final class WeatherStorage {
     private static final String KEY_WEATHER = "weather";
     private static final String KEY_GEO = "geo";
     private static final String KEY_HOURLY = "hourly";
+    private static final String KEY_FORECAST_GEO = "forecast_geo";
+    private static final String TAG = "WeatherStorage";
 
     private final SharedPreferences prefs;
     private final Gson gson = new Gson();
@@ -41,7 +44,8 @@ public final class WeatherStorage {
         ed.putString(KEY_WEATHER, weather != null ? gson.toJson(weather) : null);
         ed.putString(KEY_GEO, geo != null ? gson.toJson(geo) : null);
         ed.putString(KEY_HOURLY, hourly != null ? gson.toJson(hourly) : null);
-        ed.apply();
+        ed.putString(KEY_FORECAST_GEO, geo != null ? gson.toJson(geo) : null);
+        commit(ed, "weather snapshot");
     }
 
     public WeatherResponse loadWeather() {
@@ -62,23 +66,25 @@ public final class WeatherStorage {
         return result != null ? result : new ArrayList<>();
     }
 
-    public void saveGeo(GeoLocation geo) {
-        SharedPreferences.Editor ed = prefs.edit();
-        ed.putString(KEY_GEO, geo != null ? gson.toJson(geo) : null);
-        ed.apply();
+    public GeoLocation loadForecastGeo() {
+        String json = prefs.getString(KEY_FORECAST_GEO, null);
+        return json != null ? gson.fromJson(json, GeoLocation.class) : null;
     }
 
-    /**
-     * Сохранить почасовой прогноз отдельно (когда текущая погода не обновлялась).
-     * Не трогает сохранённые текущую погоду и геолокацию.
-     */
-    public void saveForecast(List<ForecastItem> hourly) {
+    public void saveForecast(List<ForecastItem> hourly, GeoLocation geo) {
         SharedPreferences.Editor ed = prefs.edit();
         ed.putString(KEY_HOURLY, hourly != null ? gson.toJson(hourly) : null);
-        ed.apply();
+        ed.putString(KEY_FORECAST_GEO, geo != null ? gson.toJson(geo) : null);
+        commit(ed, "forecast");
     }
 
     public boolean hasHourly() {
         return prefs.contains(KEY_HOURLY);
+    }
+
+    private static void commit(SharedPreferences.Editor editor, String dataType) {
+        if (!editor.commit()) {
+            Log.e(TAG, "Failed to persist " + dataType);
+        }
     }
 }

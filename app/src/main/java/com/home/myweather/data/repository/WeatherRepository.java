@@ -15,6 +15,8 @@ import com.home.myweather.data.network.WeatherApiService;
 import com.home.myweather.helpers.NetworkMonitor;
 import javax.inject.Inject;
 
+import android.util.Log;
+
 /**
  * Репозиторий погоды на базе Open-Meteo.
  *
@@ -29,6 +31,8 @@ import javax.inject.Inject;
  * чтобы прогноз «запоминался» между запусками приложения.
  */
 public class WeatherRepository {
+
+    private static final String TAG = "WeatherRepository";
 
     // ── Параметры запроса ─────────────────────────────────────────────────
 
@@ -110,17 +114,17 @@ public class WeatherRepository {
         }
 
         final long rid;
-        synchronized (lock) { 
+        synchronized (lock) {
             cancelLocked();
-            rid = ++requestId; 
+            rid = ++requestId;
         }
 
         geocoding.fetch(query, rid, new GeocodingRepository.Callback2() {
-            @Override 
+            @Override
             public void onSuccess(GeoLocation geo) {
                 fetchCurrentWeather(geo, callback, rid);
             }
-            @Override 
+            @Override
             public void onError(String message) {
                 callback.onError(message);
             }
@@ -178,6 +182,8 @@ public class WeatherRepository {
         geo.lon = lon;
         geo.name = "GPS";
 
+        Log.d(TAG, "fetchCurrentWeatherMarker: lat=" + lat + ", lon=" + lon);
+
         final Call<OpenMeteoForecastResponse> call = buildForecastCall(lat, lon);
         call.enqueue(new Callback<OpenMeteoForecastResponse>() {
             @Override
@@ -185,6 +191,8 @@ public class WeatherRepository {
                                    Response<OpenMeteoForecastResponse> r) {
                 if (c.isCanceled()) return;
                 OpenMeteoForecastResponse body = r.body();
+                Log.d(TAG, "fetchCurrentWeatherMarker onResponse: code=" + r.code() + ", body=" + (body != null ? "present" : "null")
+                        + ", current=" + (body != null && body.current != null ? "present" : "null"));
                 if (!r.isSuccessful() || body == null || body.current == null) {
                     callback.onError("Ошибка погоды (код " + r.code() + ")");
                     return;
@@ -196,7 +204,9 @@ public class WeatherRepository {
             @Override
             public void onFailure(Call<OpenMeteoForecastResponse> c, Throwable t) {
                 if (!c.isCanceled()) {
-                    callback.onError(networkError(t));
+                    String errorMsg = networkError(t);
+                    Log.w(TAG, "fetchCurrentWeatherMarker onFailure: " + errorMsg, t);
+                    callback.onError(errorMsg);
                 }
             }
         });
@@ -222,14 +232,16 @@ public class WeatherRepository {
         }
 
         final long rid;
-        synchronized (lock) { 
+        synchronized (lock) {
             cancelLocked();
-            rid = ++requestId; 
+            rid = ++requestId;
         }
 
+        Log.d(TAG, "fetchForecast: lat=" + lat + ", lon=" + lon + ", rid=" + rid);
+
         final Call<OpenMeteoForecastResponse> call = buildForecastCall(lat, lon);
-        synchronized (lock) { 
-            forecastCall = call; 
+        synchronized (lock) {
+            forecastCall = call;
         }
 
         call.enqueue(new Callback<OpenMeteoForecastResponse>() {
@@ -238,10 +250,14 @@ public class WeatherRepository {
                                    Response<OpenMeteoForecastResponse> r) {
                 if (c.isCanceled() || rid != requestId) return;
                 OpenMeteoForecastResponse body = r.body();
+                Log.d(TAG, "fetchForecast onResponse: code=" + r.code() + ", body=" + (body != null ? "present" : "null") 
+                        + ", hourly=" + (body != null && body.hourly != null ? "present" : "null"));
                 if (!r.isSuccessful() || body == null || body.hourly == null) {
                     // API вернул ошибку — отдаём сохранённый прогноз
                     if (serveCachedForecast(callback)) return;
-                    callback.onError("Ошибка прогноза (код " + r.code() + ")");
+                    String errorMsg = "Ошибка прогноза (код " + r.code() + ")";
+                    Log.w(TAG, errorMsg);
+                    callback.onError(errorMsg);
                     return;
                 }
                 
@@ -250,7 +266,11 @@ public class WeatherRepository {
                 ForecastCache.put(lat, lon, items);
 
                 // Постоянно запоминаем прогноз для оффлайн-режима
-                weatherCache.saveForecast(items);
+                GeoLocation forecastGeo = new GeoLocation();
+                forecastGeo.lat = lat;
+                forecastGeo.lon = lon;
+                forecastGeo.name = "GPS";
+                weatherCache.saveForecast(items, forecastGeo);
 
                 ForecastResponse fr = new ForecastResponse();
                 fr.list = items;
@@ -262,7 +282,9 @@ public class WeatherRepository {
                 if (!c.isCanceled() && rid == requestId) {
                     // Сеть «есть», но API недоступен: отдаём сохранённый прогноз.
                     if (serveCachedForecast(callback)) return;
-                    callback.onError(networkError(t));
+                    String errorMsg = networkError(t);
+                    Log.w(TAG, "fetchForecast onFailure: " + errorMsg, t);
+                    callback.onError(errorMsg);
                 }
             }
         });
@@ -288,16 +310,22 @@ public class WeatherRepository {
             weatherCall = call;
         }
 
+        Log.d(TAG, "fetchCurrentWeather: lat=" + geo.lat + ", lon=" + geo.lon + ", rid=" + rid);
+
         call.enqueue(new Callback<OpenMeteoForecastResponse>() {
             @Override
             public void onResponse(Call<OpenMeteoForecastResponse> c,
                                    Response<OpenMeteoForecastResponse> r) {
                 if (c.isCanceled() || rid != requestId) return;
                 OpenMeteoForecastResponse body = r.body();
+                Log.d(TAG, "onResponse: code=" + r.code() + ", body=" + (body != null ? "present" : "null") 
+                        + ", current=" + (body != null && body.current != null ? "present" : "null"));
                 if (!r.isSuccessful() || body == null || body.current == null) {
                     // API вернул ошибку — отдаём сохранённую погоду
                     if (serveCachedWeather(callback)) return;
-                    callback.onError("Ошибка погоды (код " + r.code() + ")");
+                    String errorMsg = "Ошибка погоды (код " + r.code() + ")";
+                    Log.w(TAG, errorMsg);
+                    callback.onError(errorMsg);
                     return;
                 }
                 
@@ -319,7 +347,9 @@ public class WeatherRepository {
                     // Сеть «есть», но API недоступен: показываем сохранённые данные,
                     // а не ошибку — прогноз должен оставаться доступным оффлайн.
                     if (serveCachedWeather(callback)) return;
-                    callback.onError(networkError(t));
+                    String errorMsg = networkError(t);
+                    Log.w(TAG, "onFailure: " + errorMsg, t);
+                    callback.onError(errorMsg);
                 }
             }
         });

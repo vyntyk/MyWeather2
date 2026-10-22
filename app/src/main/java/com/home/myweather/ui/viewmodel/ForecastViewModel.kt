@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.home.myweather.data.model.DailyData
 import com.home.myweather.data.model.ForecastResponse
 import com.home.myweather.data.repository.WeatherRepository
+import com.home.myweather.data.repository.WeatherStorage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -17,7 +18,8 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class ForecastViewModel @Inject constructor(
-    private val weatherRepository: WeatherRepository
+    private val weatherRepository: WeatherRepository,
+    private val weatherStorage: WeatherStorage
 ) : ViewModel() {
     
     private val _uiState = MutableLiveData<ForecastUiState>(ForecastUiState())
@@ -42,14 +44,31 @@ class ForecastViewModel @Inject constructor(
             return
         }
         
+        var hasPersistentCache = false
+        val savedGeo = weatherStorage.loadForecastGeo()
+        if (savedGeo != null &&
+            kotlin.math.abs(savedGeo.lat - lat) <= 0.01 &&
+            kotlin.math.abs(savedGeo.lon - lon) <= 0.01
+        ) {
+            val savedItems = weatherStorage.loadHourly()
+            if (savedItems.isNotEmpty()) {
+                val grouped = com.home.myweather.utils.ForecastGrouper.groupByDay(savedItems)
+                forecastCache[locationKey] = grouped
+                _uiState.value = ForecastUiState(days = grouped, isLoading = false)
+                hasPersistentCache = true
+            }
+        }
+
         // Проверяем локальный кэш
         val cached = forecastCache[locationKey]
-        if (cached != null) {
+        if (cached != null && !hasPersistentCache) {
             _uiState.postValue(ForecastUiState(days = cached, isLoading = false))
             return
         }
         
-        _uiState.postValue(ForecastUiState(isLoading = true, error = null))
+        if (!hasPersistentCache) {
+            _uiState.postValue(ForecastUiState(isLoading = true, error = null))
+        }
         
         viewModelScope.launch {
             weatherRepository.fetchForecast(lat, lon, object : WeatherRepository.ForecastCallback {
@@ -70,12 +89,8 @@ class ForecastViewModel @Inject constructor(
                 }
                 
                 override fun onError(message: String) {
-                    _uiState.postValue(
-                        ForecastUiState(
-                            isLoading = false,
-                            error = message
-                        )
-                    )
+                    val current = _uiState.value ?: ForecastUiState()
+                    _uiState.postValue(current.copy(isLoading = false, error = message))
                 }
             })
         }

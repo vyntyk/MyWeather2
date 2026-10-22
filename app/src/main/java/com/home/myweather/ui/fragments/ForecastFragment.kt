@@ -88,7 +88,13 @@ class ForecastFragment : Fragment() {
 
         state.error?.let { message ->
             Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
-            showPlaceholder()
+            if (state.days.isEmpty()) {
+                showPlaceholder()
+            } else {
+                dailyAdapter.submitList(state.days.toList())
+                updateCityTitle()
+                showList()
+            }
             return
         }
 

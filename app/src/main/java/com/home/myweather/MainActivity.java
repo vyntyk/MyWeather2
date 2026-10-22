@@ -59,9 +59,9 @@ public class MainActivity extends AppCompatActivity {
             lastGeo = savedInstanceState.getParcelable(STATE_LAST_GEO);
             lastGeoSource = savedInstanceState.getString(STATE_LAST_GEO_SOURCE, "GPS");
             currentPage = savedInstanceState.getInt(STATE_SELECTED_PAGE, 0);
-        } else {
-            lastGeo = weatherStorage.loadGeo();
         }
+        GeoLocation savedWeatherGeo = weatherStorage.loadGeo();
+        if (savedWeatherGeo != null) lastGeo = savedWeatherGeo;
 
         pagerAdapter = new MainPagerAdapter(this);
         viewPager.setAdapter(pagerAdapter);
@@ -173,7 +173,6 @@ public class MainActivity extends AppCompatActivity {
                     lastGeo.lon = lon;
                     lastGeo.name = "GPS";
                     lastGeoSource = "GPS";
-                    weatherStorage.saveGeo(lastGeo);
 
                     NowFragment nf = getNowFragment();
                     ForecastFragment ff = getForecastFragment();
@@ -213,7 +212,6 @@ public class MainActivity extends AppCompatActivity {
         if (geo == null) return;
         lastGeo = geo;
         lastGeoSource = source != null ? source : "GPS";
-        weatherStorage.saveGeo(geo);
 
         ForecastFragment ff = getForecastFragment();
         MapFragment mf = getMapFragment();

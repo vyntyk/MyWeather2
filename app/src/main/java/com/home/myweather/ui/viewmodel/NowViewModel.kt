@@ -8,6 +8,7 @@ import com.home.myweather.data.model.ForecastItem
 import com.home.myweather.data.model.GeoLocation
 import com.home.myweather.data.model.WeatherResponse
 import com.home.myweather.data.repository.WeatherRepository
+import com.home.myweather.data.repository.WeatherStorage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -18,22 +19,35 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class NowViewModel @Inject constructor(
-    private val weatherRepository: WeatherRepository
+    private val weatherRepository: WeatherRepository,
+    weatherStorage: WeatherStorage
 ) : ViewModel() {
     
-    private val _uiState = MutableLiveData<WeatherUiState>(WeatherUiState())
+    private val cachedGeo = weatherStorage.loadGeo()
+    private val cachedWeather = weatherStorage.loadWeather()
+    private val _uiState = MutableLiveData(
+        if (cachedWeather != null && cachedGeo != null) {
+            WeatherUiState(weather = cachedWeather, geo = cachedGeo)
+        } else {
+            WeatherUiState()
+        }
+    )
     @JvmField
     val uiState: LiveData<WeatherUiState> = _uiState
     
-    private val _hourlyForecast = MutableLiveData<List<ForecastItem>>(emptyList())
+    private val _hourlyForecast = MutableLiveData(
+        weatherStorage.loadHourly()
+            .filter { it.timestamp + 3600L > System.currentTimeMillis() / 1000L }
+            .take(24)
+    )
     @JvmField
     val hourlyForecast: LiveData<List<ForecastItem>> = _hourlyForecast
     
     @JvmField
-    var lastGeo: GeoLocation? = null
+    var lastGeo: GeoLocation? = cachedGeo
     
     fun fetchWeatherByCoords(lat: Double, lon: Double) {
-        _uiState.postValue(WeatherUiState(isLoading = true, error = null))
+        _uiState.value = (_uiState.value ?: WeatherUiState()).copy(isLoading = true, error = null)
         
         viewModelScope.launch {
             weatherRepository.fetchWeatherByCoords(lat, lon, object : WeatherRepository.WeatherCallback {
@@ -50,19 +64,15 @@ class NowViewModel @Inject constructor(
                 }
                 
                 override fun onError(message: String) {
-                    _uiState.postValue(
-                        WeatherUiState(
-                            isLoading = false,
-                            error = message
-                        )
-                    )
+                    val current = _uiState.value ?: WeatherUiState()
+                    _uiState.postValue(current.copy(isLoading = false, error = message))
                 }
             })
         }
     }
     
     fun fetchWeatherByCity(city: String) {
-        _uiState.postValue(WeatherUiState(isLoading = true, error = null))
+        _uiState.value = (_uiState.value ?: WeatherUiState()).copy(isLoading = true, error = null)
         
         viewModelScope.launch {
             weatherRepository.fetchWeather(city, null, object : WeatherRepository.WeatherCallback {
@@ -79,12 +89,8 @@ class NowViewModel @Inject constructor(
                 }
                 
                 override fun onError(message: String) {
-                    _uiState.postValue(
-                        WeatherUiState(
-                            isLoading = false,
-                            error = message
-                        )
-                    )
+                    val current = _uiState.value ?: WeatherUiState()
+                    _uiState.postValue(current.copy(isLoading = false, error = message))
                 }
             })
         }
