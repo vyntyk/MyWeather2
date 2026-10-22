@@ -192,12 +192,13 @@ public class NowFragment extends Fragment {
 
     private void observeViewModel() {
         viewModel.uiState.observe(getViewLifecycleOwner(), state -> {
+            if (state.weather != null) {
+                showWeather(state.weather, state.geo);
+            }
             if (state.isLoading) {
                 showLoading();
             } else if (state.error != null) {
                 showError(state.error);
-            } else if (state.weather != null) {
-                showWeather(state.weather, state.geo);
             }
         });
 

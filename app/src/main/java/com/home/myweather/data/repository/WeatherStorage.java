@@ -48,6 +48,13 @@ public final class WeatherStorage {
         commit(ed, "weather snapshot");
     }
 
+    public void saveWeather(WeatherResponse weather, GeoLocation geo) {
+        SharedPreferences.Editor ed = prefs.edit();
+        ed.putString(KEY_WEATHER, weather != null ? gson.toJson(weather) : null);
+        ed.putString(KEY_GEO, geo != null ? gson.toJson(geo) : null);
+        commit(ed, "current weather");
+    }
+
     public WeatherResponse loadWeather() {
         String json = prefs.getString(KEY_WEATHER, null);
         return json != null ? gson.fromJson(json, WeatherResponse.class) : null;

@@ -5,11 +5,11 @@ import retrofit2.Callback;
 import retrofit2.Response;
 import java.util.List;
 
-import com.home.myweather.data.mapper.OpenMeteoMapper;
+import com.home.myweather.data.mapper.MetNoMapper;
 import com.home.myweather.data.model.ForecastItem;
 import com.home.myweather.data.model.ForecastResponse;
 import com.home.myweather.data.model.GeoLocation;
-import com.home.myweather.data.model.OpenMeteoForecastResponse;
+import com.home.myweather.data.model.MetNoForecastResponse;
 import com.home.myweather.data.model.WeatherResponse;
 import com.home.myweather.data.network.WeatherApiService;
 import com.home.myweather.helpers.NetworkMonitor;
@@ -18,10 +18,10 @@ import javax.inject.Inject;
 import android.util.Log;
 
 /**
- * Репозиторий погоды на базе Open-Meteo.
+ * Repository for current weather and forecasts from MET Norway.
  *
  * Оркестрирует запросы, кэширование и обработку ошибок.
- * Использует OpenMeteoMapper для преобразования API-ответов в модели приложения.
+ * Uses MetNoMapper to convert API responses to app models.
  *
  * API-ключ не нужен. Open-Meteo используется для текущей погоды и прогноза.
  *
@@ -35,20 +35,6 @@ public class WeatherRepository {
     private static final String TAG = "WeatherRepository";
 
     // ── Параметры запроса ─────────────────────────────────────────────────
-
-    private static final String CURRENT_PARAMS =
-            "temperature_2m,relative_humidity_2m,apparent_temperature," +
-            "precipitation_probability,precipitation,weather_code,cloud_cover," +
-            "surface_pressure,wind_speed_10m,wind_direction_10m,is_day";
-
-    private static final String HOURLY_PARAMS =
-            "temperature_2m,relative_humidity_2m,apparent_temperature," +
-            "precipitation_probability,weather_code,wind_speed_10m," +
-            "wind_direction_10m,surface_pressure,visibility";
-
-    private static final String DAILY_PARAMS =
-            "weather_code,temperature_2m_max,temperature_2m_min," +
-            "precipitation_probability_max,wind_speed_10m_max,sunrise,sunset";
 
     // ── Интерфейсы обратного вызова ───────────────────────────────────────
 
@@ -70,9 +56,10 @@ public class WeatherRepository {
     private final NetworkMonitor networkMonitor;
     private final Object lock = new Object();
 
-    private Call<OpenMeteoForecastResponse> weatherCall;
-    private Call<OpenMeteoForecastResponse> forecastCall;
-    private long requestId = 0L;
+    private Call<MetNoForecastResponse> weatherCall;
+    private Call<MetNoForecastResponse> forecastCall;
+    private long weatherRequestId = 0L;
+    private long forecastRequestId = 0L;
 
     // ── Конструктор с внедрением зависимостей ────────────────────────────
 
@@ -115,8 +102,8 @@ public class WeatherRepository {
 
         final long rid;
         synchronized (lock) {
-            cancelLocked();
-            rid = ++requestId;
+            cancelWeatherLocked();
+            rid = ++weatherRequestId;
         }
 
         geocoding.fetch(query, rid, new GeocodingRepository.Callback2() {
@@ -155,9 +142,9 @@ public class WeatherRepository {
         geo.name = "GPS";
 
         final long rid;
-        synchronized (lock) { 
-            cancelLocked();
-            rid = ++requestId; 
+        synchronized (lock) {
+            cancelWeatherLocked();
+            rid = ++weatherRequestId;
         }
         fetchCurrentWeather(geo, callback, rid);
     }
@@ -165,7 +152,7 @@ public class WeatherRepository {
     /**
      * Получить текущую погоду по координатам ПАРАЛЕЛЬНО (для карты).
      * В отличие от {@link #fetchWeatherByCoords}, НЕ отменяет предыдущие запросы
-     * и НЕ трогает общий requestId — чтобы несколько запросов (метки температуры
+     * и НЕ трогает идентификаторы запросов — чтобы несколько запросов (метки температуры
      * на карте) выполнялись одновременно и не отменяли друг друга.
      */
     public void fetchCurrentWeatherMarker(double lat, double lon, WeatherCallback callback) {
@@ -184,25 +171,27 @@ public class WeatherRepository {
 
         Log.d(TAG, "fetchCurrentWeatherMarker: lat=" + lat + ", lon=" + lon);
 
-        final Call<OpenMeteoForecastResponse> call = buildForecastCall(lat, lon);
-        call.enqueue(new Callback<OpenMeteoForecastResponse>() {
+        final Call<MetNoForecastResponse> call = buildForecastCall(lat, lon);
+        call.enqueue(new Callback<MetNoForecastResponse>() {
             @Override
-            public void onResponse(Call<OpenMeteoForecastResponse> c,
-                                   Response<OpenMeteoForecastResponse> r) {
+            public void onResponse(Call<MetNoForecastResponse> c,
+                                   Response<MetNoForecastResponse> r) {
                 if (c.isCanceled()) return;
-                OpenMeteoForecastResponse body = r.body();
+                MetNoForecastResponse body = r.body();
                 Log.d(TAG, "fetchCurrentWeatherMarker onResponse: code=" + r.code() + ", body=" + (body != null ? "present" : "null")
-                        + ", current=" + (body != null && body.current != null ? "present" : "null"));
-                if (!r.isSuccessful() || body == null || body.current == null) {
+                        + ", timeseries=" + (body != null && body.properties != null
+                        && body.properties.timeSeries != null ? body.properties.timeSeries.size() : "null"));
+                if (!r.isSuccessful() || body == null || body.properties == null
+                        || body.properties.timeSeries == null || body.properties.timeSeries.isEmpty()) {
                     callback.onError("Ошибка погоды (код " + r.code() + ")");
                     return;
                 }
-                WeatherResponse wr = OpenMeteoMapper.toWeatherResponse(body, geo);
+                WeatherResponse wr = MetNoMapper.toWeatherResponse(body, geo);
                 callback.onSuccess(wr, geo);
             }
 
             @Override
-            public void onFailure(Call<OpenMeteoForecastResponse> c, Throwable t) {
+            public void onFailure(Call<MetNoForecastResponse> c, Throwable t) {
                 if (!c.isCanceled()) {
                     String errorMsg = networkError(t);
                     Log.w(TAG, "fetchCurrentWeatherMarker onFailure: " + errorMsg, t);
@@ -233,26 +222,28 @@ public class WeatherRepository {
 
         final long rid;
         synchronized (lock) {
-            cancelLocked();
-            rid = ++requestId;
+            cancelForecastLocked();
+            rid = ++forecastRequestId;
         }
 
         Log.d(TAG, "fetchForecast: lat=" + lat + ", lon=" + lon + ", rid=" + rid);
 
-        final Call<OpenMeteoForecastResponse> call = buildForecastCall(lat, lon);
+        final Call<MetNoForecastResponse> call = buildForecastCall(lat, lon);
         synchronized (lock) {
             forecastCall = call;
         }
 
-        call.enqueue(new Callback<OpenMeteoForecastResponse>() {
+        call.enqueue(new Callback<MetNoForecastResponse>() {
             @Override
-            public void onResponse(Call<OpenMeteoForecastResponse> c,
-                                   Response<OpenMeteoForecastResponse> r) {
-                if (c.isCanceled() || rid != requestId) return;
-                OpenMeteoForecastResponse body = r.body();
+            public void onResponse(Call<MetNoForecastResponse> c,
+                                   Response<MetNoForecastResponse> r) {
+                if (c.isCanceled() || rid != forecastRequestId) return;
+                MetNoForecastResponse body = r.body();
                 Log.d(TAG, "fetchForecast onResponse: code=" + r.code() + ", body=" + (body != null ? "present" : "null") 
-                        + ", hourly=" + (body != null && body.hourly != null ? "present" : "null"));
-                if (!r.isSuccessful() || body == null || body.hourly == null) {
+                        + ", timeseries=" + (body != null && body.properties != null
+                        && body.properties.timeSeries != null ? body.properties.timeSeries.size() : "null"));
+                if (!r.isSuccessful() || body == null || body.properties == null
+                        || body.properties.timeSeries == null) {
                     // API вернул ошибку — отдаём сохранённый прогноз
                     if (serveCachedForecast(callback)) return;
                     String errorMsg = "Ошибка прогноза (код " + r.code() + ")";
@@ -261,8 +252,8 @@ public class WeatherRepository {
                     return;
                 }
                 
-                // Используем OpenMeteoMapper для преобразования
-                List<ForecastItem> items = OpenMeteoMapper.toForecastItems(body);
+                // Convert the API response to the app model.
+                List<ForecastItem> items = MetNoMapper.toForecastItems(body);
                 ForecastCache.put(lat, lon, items);
 
                 // Постоянно запоминаем прогноз для оффлайн-режима
@@ -278,8 +269,8 @@ public class WeatherRepository {
             }
 
             @Override
-            public void onFailure(Call<OpenMeteoForecastResponse> c, Throwable t) {
-                if (!c.isCanceled() && rid == requestId) {
+            public void onFailure(Call<MetNoForecastResponse> c, Throwable t) {
+                if (!c.isCanceled() && rid == forecastRequestId) {
                     // Сеть «есть», но API недоступен: отдаём сохранённый прогноз.
                     if (serveCachedForecast(callback)) return;
                     String errorMsg = networkError(t);
@@ -295,32 +286,36 @@ public class WeatherRepository {
      */
     public void cancelPendingRequests() {
         synchronized (lock) { 
-            cancelLocked();
-            requestId++; 
+            cancelWeatherLocked();
+            cancelForecastLocked();
+            weatherRequestId++;
+            forecastRequestId++;
         }
     }
 
     // ── Внутренняя логика ─────────────────────────────────────────────────
 
     private void fetchCurrentWeather(GeoLocation geo, WeatherCallback callback, long rid) {
-        final Call<OpenMeteoForecastResponse> call;
+        final Call<MetNoForecastResponse> call;
         synchronized (lock) {
-            if (rid != requestId) return;
-            call = buildForecastCall(geo.lat, geo.lon);
+            if (rid != weatherRequestId) return;
+            call = buildCurrentWeatherCall(geo.lat, geo.lon);
             weatherCall = call;
         }
 
         Log.d(TAG, "fetchCurrentWeather: lat=" + geo.lat + ", lon=" + geo.lon + ", rid=" + rid);
 
-        call.enqueue(new Callback<OpenMeteoForecastResponse>() {
+        call.enqueue(new Callback<MetNoForecastResponse>() {
             @Override
-            public void onResponse(Call<OpenMeteoForecastResponse> c,
-                                   Response<OpenMeteoForecastResponse> r) {
-                if (c.isCanceled() || rid != requestId) return;
-                OpenMeteoForecastResponse body = r.body();
+            public void onResponse(Call<MetNoForecastResponse> c,
+                                   Response<MetNoForecastResponse> r) {
+                if (c.isCanceled() || rid != weatherRequestId) return;
+                MetNoForecastResponse body = r.body();
                 Log.d(TAG, "onResponse: code=" + r.code() + ", body=" + (body != null ? "present" : "null") 
-                        + ", current=" + (body != null && body.current != null ? "present" : "null"));
-                if (!r.isSuccessful() || body == null || body.current == null) {
+                        + ", timeseries=" + (body != null && body.properties != null
+                        && body.properties.timeSeries != null ? body.properties.timeSeries.size() : "null"));
+                if (!r.isSuccessful() || body == null || body.properties == null
+                        || body.properties.timeSeries == null || body.properties.timeSeries.isEmpty()) {
                     // API вернул ошибку — отдаём сохранённую погоду
                     if (serveCachedWeather(callback)) return;
                     String errorMsg = "Ошибка погоды (код " + r.code() + ")";
@@ -329,21 +324,16 @@ public class WeatherRepository {
                     return;
                 }
                 
-                // Кэшируем почасовые данные — ForecastFragment их возьмёт без нового запроса
-                List<ForecastItem> items = OpenMeteoMapper.toForecastItems(body);
-                ForecastCache.put(geo.lat, geo.lon, items);
+                // Convert the API response to the app model.
+                WeatherResponse wr = MetNoMapper.toWeatherResponse(body, geo);
 
-                // Используем OpenMeteoMapper для преобразования
-                WeatherResponse wr = OpenMeteoMapper.toWeatherResponse(body, geo);
-
-                // Постоянно запоминаем текущую погоду + прогноз для оффлайн-режима
-                weatherCache.save(wr, geo, items);
+                weatherCache.saveWeather(wr, geo);
                 callback.onSuccess(wr, geo);
             }
 
             @Override
-            public void onFailure(Call<OpenMeteoForecastResponse> c, Throwable t) {
-                if (!c.isCanceled() && rid == requestId) {
+            public void onFailure(Call<MetNoForecastResponse> c, Throwable t) {
+                if (!c.isCanceled() && rid == weatherRequestId) {
                     // Сеть «есть», но API недоступен: показываем сохранённые данные,
                     // а не ошибку — прогноз должен оставаться доступным оффлайн.
                     if (serveCachedWeather(callback)) return;
@@ -355,14 +345,15 @@ public class WeatherRepository {
         });
     }
 
-    private Call<OpenMeteoForecastResponse> buildForecastCall(double lat, double lon) {
+    private Call<MetNoForecastResponse> buildForecastCall(double lat, double lon) {
         return apiService.getForecast(
-                lat, lon,
-                CURRENT_PARAMS, HOURLY_PARAMS, DAILY_PARAMS,
-                "ms",    // скорость ветра в м/с
-                "auto",  // часовой пояс по координатам
-                7        // дней
+                String.format(java.util.Locale.US, "%.4f", lat),
+                String.format(java.util.Locale.US, "%.4f", lon)
         );
+    }
+
+    private Call<MetNoForecastResponse> buildCurrentWeatherCall(double lat, double lon) {
+        return buildForecastCall(lat, lon);
     }
 
     // ── Вспомогательные методы ────────────────────────────────────────────
@@ -402,11 +393,14 @@ public class WeatherRepository {
         return true;
     }
 
-    private void cancelLocked() {
+    private void cancelWeatherLocked() {
         geocoding.cancel();
         if (weatherCall != null && !weatherCall.isCanceled()) {
             weatherCall.cancel();
         }
+    }
+
+    private void cancelForecastLocked() {
         if (forecastCall != null && !forecastCall.isCanceled()) {
             forecastCall.cancel();
         }

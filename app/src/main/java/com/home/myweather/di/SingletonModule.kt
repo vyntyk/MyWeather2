@@ -46,14 +46,14 @@ object SingletonModule {
         val cache = Cache(cacheDir, 50L * 1024 * 1024)
 
         return OkHttpClient.Builder()
-            .connectTimeout(15L, TimeUnit.SECONDS)
+            .connectTimeout(5L, TimeUnit.SECONDS)
             .readTimeout(15L, TimeUnit.SECONDS)
             .writeTimeout(15L, TimeUnit.SECONDS)
             .cache(cache)
             .addInterceptor { chain ->
                 val original = chain.request()
                 val request = original.newBuilder()
-                    .header("User-Agent", "MyWeather/2.1")
+                    .header("User-Agent", "MyWeather/2.1 (https://github.com/vyntyk/MyWeather2)")
                     .header("Accept", "application/json")
                     .build()
                 chain.proceed(request)
@@ -67,7 +67,7 @@ object SingletonModule {
     @Provides
     fun provideWeatherRetrofit(okHttpClient: OkHttpClient): Retrofit {
         return Retrofit.Builder()
-            .baseUrl("https://api.open-meteo.com/")
+            .baseUrl("https://api.met.no/")
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()

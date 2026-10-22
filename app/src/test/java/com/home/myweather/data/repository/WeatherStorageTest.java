@@ -101,6 +101,24 @@ public class WeatherStorageTest {
     }
 
     @Test
+    public void saveWeather_keepsPreviouslySavedForecast() throws Exception {
+        List<ForecastItem> forecast = createForecastItems(3);
+        storage.save(
+                createWeatherResponse(22.5, 1013, 65, "Moscow"),
+                createGeoLocation(55.75, 37.61, "Moscow", "RU"),
+                forecast
+        );
+
+        storage.saveWeather(
+                createWeatherResponse(24.0, 1010, 60, "Moscow"),
+                createGeoLocation(55.75, 37.61, "Moscow", "RU")
+        );
+
+        assertEquals(24.0, storage.loadWeather().getMain().getTemp(), 0.001);
+        assertEquals(3, storage.loadHourly().size());
+    }
+
+    @Test
     public void saveForecast_keepsCurrentWeatherLocationAndPersistsForecastLocation() throws Exception {
         GeoLocation weatherGeo = createGeoLocation(55.75, 37.61, "Moscow", "RU");
         storage.save(
