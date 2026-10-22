@@ -388,6 +388,15 @@ class MapFragment : Fragment(), OnMapReadyCallback {
     }
 
     private fun addOWMLayer(style: Style, layer: WeatherTileLayer.Layer) {
+        if (BuildConfig.OPENWEATHER_API_KEY.isBlank()) {
+            android.widget.Toast.makeText(
+                requireContext(),
+                "Задайте OPENWEATHER_API_KEY в local.properties для погодных слоёв",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
         val sourceId = WeatherTileLayer.sourceId(layer)
         val layerId = WeatherTileLayer.layerId(layer)
         val tileUrl = WeatherTileLayer.tileUrl(layer, BuildConfig.OPENWEATHER_API_KEY)
