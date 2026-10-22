@@ -39,6 +39,7 @@ public class MainActivity extends AppCompatActivity {
 
     private MainPagerAdapter pagerAdapter;
     private int currentPage = 0;
+    private String pendingFavoriteCity;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -121,9 +122,7 @@ public class MainActivity extends AppCompatActivity {
 
         switch (position) {
             case 0:
-                if (nf != null && nf.isAdded()) {
-                    nf.loadWeatherByCoords(lastGeo.lat, lastGeo.lon);
-                }
+                dispatchPendingFavoriteCity();
                 break;
             case 1:
                 if (ff != null && ff.isAdded()) {
@@ -203,9 +202,27 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void loadWeatherFromFavoriteCity(String cityName) {
-        NowFragment nf = getNowFragment();
-        if (nf != null) nf.loadWeatherByCity(cityName);
-        viewPager.setCurrentItem(0, true);
+        pendingFavoriteCity = cityName;
+        if (viewPager.getCurrentItem() != 0) {
+            viewPager.setCurrentItem(0, true);
+        } else {
+            viewPager.post(this::dispatchPendingFavoriteCity);
+        }
+    }
+
+    private void dispatchPendingFavoriteCity() {
+        NowFragment nowFragment = getNowFragment();
+        if (nowFragment == null || !nowFragment.isAdded() || nowFragment.getView() == null) return;
+        loadPendingFavoriteCity(nowFragment);
+    }
+
+    public boolean loadPendingFavoriteCity(NowFragment nowFragment) {
+        if (pendingFavoriteCity == null) return false;
+
+        String cityName = pendingFavoriteCity;
+        pendingFavoriteCity = null;
+        nowFragment.loadWeatherByCity(cityName);
+        return true;
     }
 
     public void onWeatherLocationLoaded(GeoLocation geo, String source) {

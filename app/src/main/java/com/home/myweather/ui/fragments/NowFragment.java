@@ -106,9 +106,11 @@ public class NowFragment extends Fragment {
         setupListeners();
         observeViewModel();
 
-        if (viewModel.lastGeo != null) {
+        boolean loadingFavoriteCity = getActivity() instanceof MainActivity
+                && ((MainActivity) getActivity()).loadPendingFavoriteCity(this);
+        if (!loadingFavoriteCity && viewModel.lastGeo != null) {
             viewModel.fetchWeatherByCoords(viewModel.lastGeo.lat, viewModel.lastGeo.lon);
-        } else if (getActivity() instanceof MainActivity) {
+        } else if (!loadingFavoriteCity && getActivity() instanceof MainActivity) {
             MainActivity ma = (MainActivity) getActivity();
             if (ma.getGeoLocation() != null) {
                 loadWeatherByCoords(ma.getGeoLocation().lat, ma.getGeoLocation().lon);
