@@ -101,6 +101,42 @@ public class WeatherStorageTest {
     }
 
     @Test
+    public void saveWeather_keepsPreviouslySavedForecast() throws Exception {
+        List<ForecastItem> forecast = createForecastItems(3);
+        storage.save(
+                createWeatherResponse(22.5, 1013, 65, "Moscow"),
+                createGeoLocation(55.75, 37.61, "Moscow", "RU"),
+                forecast
+        );
+
+        storage.saveWeather(
+                createWeatherResponse(24.0, 1010, 60, "Moscow"),
+                createGeoLocation(55.75, 37.61, "Moscow", "RU")
+        );
+
+        assertEquals(24.0, storage.loadWeather().getMain().getTemp(), 0.001);
+        assertEquals(3, storage.loadHourly().size());
+    }
+
+    @Test
+    public void saveForecast_keepsCurrentWeatherLocationAndPersistsForecastLocation() throws Exception {
+        GeoLocation weatherGeo = createGeoLocation(55.75, 37.61, "Moscow", "RU");
+        storage.save(
+                createWeatherResponse(22.5, 1013, 65, "Moscow"),
+                weatherGeo,
+                createForecastItems(1)
+        );
+        GeoLocation forecastGeo = createGeoLocation(59.93, 30.31, "Saint Petersburg", "RU");
+
+        storage.saveForecast(createForecastItems(2), forecastGeo);
+
+        WeatherStorage reopenedStorage = new WeatherStorage(context);
+        assertEquals("Moscow", reopenedStorage.loadGeo().name);
+        assertEquals("Saint Petersburg", reopenedStorage.loadForecastGeo().name);
+        assertEquals(2, reopenedStorage.loadHourly().size());
+    }
+
+    @Test
     public void saveWithNulls_doesNotCrash() {
         // Should not throw exception
         storage.save(null, null, null);

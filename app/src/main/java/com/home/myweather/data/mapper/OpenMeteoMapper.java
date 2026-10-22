@@ -89,8 +89,9 @@ public final class OpenMeteoMapper {
         if (response.daily != null
                 && response.daily.sunrise != null
                 && !response.daily.sunrise.isEmpty()) {
-            sys.sunrise = parseIsoToEpochSeconds(response.daily.sunrise.get(0));
-            sys.sunset = parseIsoToEpochSeconds(response.daily.sunset.get(0));
+            // Те же правила, что и для hourly: местное время → истинный Unix-time
+            sys.sunrise = parseIsoToEpochSeconds(response.daily.sunrise.get(0)) - response.utcOffsetSeconds;
+            sys.sunset = parseIsoToEpochSeconds(response.daily.sunset.get(0)) - response.utcOffsetSeconds;
         }
         sys.country = (geo != null && geo.country != null) ? geo.country : "";
         wr.sys = sys;
@@ -120,8 +121,11 @@ public final class OpenMeteoMapper {
             String timeStr = response.hourly.time.get(i);
             ForecastItem item = new ForecastItem();
             
-            // Время (Unix-секунды)
-            item.timestamp = parseIsoToEpochSeconds(timeStr);
+            // Время (Unix-секунды).
+            // Open-Meteo с timezone=auto отдаёт местное время (без смещения),
+            // поэтому parseIsoToEpochSeconds даёт «местное время как UTC»;
+            // вычитаем смещение часового пояса, чтобы получить истинный Unix-time.
+            item.timestamp = parseIsoToEpochSeconds(timeStr) - response.utcOffsetSeconds;
             item.dtText = timeStr.replace("T", " ") + ":00";
 
             // Main — основные данные

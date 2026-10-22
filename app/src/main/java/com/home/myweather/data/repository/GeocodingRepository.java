@@ -8,11 +8,15 @@ import com.home.myweather.data.model.OpenMeteoGeoResponse;
 import com.home.myweather.data.network.GeocodingApiService;
 import javax.inject.Inject;
 
+import android.util.Log;
+
 /**
  * Шаг 1: получение координат по названию города через Open-Meteo Geocoding API.
  * API-ключ не нужен.
  */
 public class GeocodingRepository {
+    private static final String TAG = "GeocodingRepository";
+    
     private final GeocodingApiService geoService;
 
     public GeocodingRepository(GeocodingApiService geoService) {
@@ -34,6 +38,8 @@ public class GeocodingRepository {
         // Open-Meteo Geocoding принимает только имя города без кода страны
         String cityName = query.contains(",") ? query.split(",")[0].trim() : query.trim();
 
+        Log.d(TAG, "fetch: cityName=" + cityName + ", requestId=" + requestId);
+
         pendingCall = geoService.search(cityName, 1, "ru", "json");
         pendingCall.enqueue(new Callback<OpenMeteoGeoResponse>() {
             @Override
@@ -41,11 +47,15 @@ public class GeocodingRepository {
                                    Response<OpenMeteoGeoResponse> response) {
                 if (call.isCanceled()) return;
                 OpenMeteoGeoResponse body = response.body();
+                Log.d(TAG, "onResponse: code=" + response.code() + ", body=" + (body != null ? "present" : "null")
+                        + ", results=" + (body != null && body.results != null ? body.results.size() : "null"));
                 if (!response.isSuccessful()
                         || body == null
                         || body.results == null
                         || body.results.isEmpty()) {
-                    callback.onError("Город не найден: " + cityName);
+                    String errorMsg = "Город не найден: " + cityName;
+                    Log.w(TAG, errorMsg + " (code=" + response.code() + ")");
+                    callback.onError(errorMsg);
                     return;
                 }
                 OpenMeteoGeoResponse.Result r = body.results.get(0);
@@ -60,7 +70,11 @@ public class GeocodingRepository {
 
             @Override
             public void onFailure(Call<OpenMeteoGeoResponse> call, Throwable t) {
-                if (!call.isCanceled()) callback.onError(networkError(t));
+                if (!call.isCanceled()) {
+                    String errorMsg = networkError(t);
+                    Log.w(TAG, "onFailure: " + errorMsg, t);
+                    callback.onError(errorMsg);
+                }
             }
         });
     }

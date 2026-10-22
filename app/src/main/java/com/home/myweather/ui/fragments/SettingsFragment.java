@@ -1,6 +1,8 @@
 package com.home.myweather.ui.fragments;
 
 import android.content.SharedPreferences;
+import android.text.Html;
+import android.text.method.LinkMovementMethod;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -31,6 +33,14 @@ public class SettingsFragment extends Fragment {
         View v = inflater.inflate(R.layout.fragment_settings, container, false);
         
         prefs = requireContext().getSharedPreferences("myweather_prefs", 0);
+
+        android.widget.TextView attribution = v.findViewById(R.id.weather_attribution);
+        attribution.setText(Html.fromHtml(
+                "Погодные данные: <a href=\"https://api.met.no\">MET Norway</a> · " +
+                        "<a href=\"https://creativecommons.org/licenses/by/4.0/\">CC BY 4.0</a>",
+                Html.FROM_HTML_MODE_LEGACY
+        ));
+        attribution.setMovementMethod(LinkMovementMethod.getInstance());
         
         // Переключатель тёмной темы
         SwitchCompat swDarkTheme = v.findViewById(R.id.sw_dark_theme);

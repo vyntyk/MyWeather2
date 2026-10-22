@@ -1,12 +1,16 @@
 package com.home.myweather.di
 
+import android.content.Context
 import com.home.myweather.data.network.GeocodingApiService
 import com.home.myweather.data.network.WeatherApiService
 import com.home.myweather.data.repository.GeocodingRepository
 import com.home.myweather.data.repository.WeatherRepository
+import com.home.myweather.data.repository.WeatherStorage
+import com.home.myweather.helpers.NetworkMonitor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import okhttp3.Cache
 import okhttp3.OkHttpClient
@@ -42,14 +46,14 @@ object SingletonModule {
         val cache = Cache(cacheDir, 50L * 1024 * 1024)
 
         return OkHttpClient.Builder()
-            .connectTimeout(15L, TimeUnit.SECONDS)
+            .connectTimeout(5L, TimeUnit.SECONDS)
             .readTimeout(15L, TimeUnit.SECONDS)
             .writeTimeout(15L, TimeUnit.SECONDS)
             .cache(cache)
             .addInterceptor { chain ->
                 val original = chain.request()
                 val request = original.newBuilder()
-                    .header("User-Agent", "MyWeather/2.1")
+                    .header("User-Agent", "MyWeather/2.1 (https://github.com/vyntyk/MyWeather2)")
                     .header("Accept", "application/json")
                     .build()
                 chain.proceed(request)
@@ -63,7 +67,7 @@ object SingletonModule {
     @Provides
     fun provideWeatherRetrofit(okHttpClient: OkHttpClient): Retrofit {
         return Retrofit.Builder()
-            .baseUrl("https://api.open-meteo.com/")
+            .baseUrl("https://api.met.no/")
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
@@ -106,10 +110,24 @@ object SingletonModule {
 
     @Singleton
     @Provides
+    fun provideWeatherStorage(@ApplicationContext context: Context): WeatherStorage {
+        return WeatherStorage(context)
+    }
+
+    @Singleton
+    @Provides
+    fun provideNetworkMonitor(@ApplicationContext context: Context): NetworkMonitor {
+        return NetworkMonitor(context)
+    }
+
+    @Singleton
+    @Provides
     fun provideWeatherRepository(
         @WeatherApi apiService: WeatherApiService,
-        geocodingRepository: GeocodingRepository
+        geocodingRepository: GeocodingRepository,
+        weatherStorage: WeatherStorage,
+        networkMonitor: NetworkMonitor
     ): WeatherRepository {
-        return WeatherRepository(apiService, geocodingRepository)
+        return WeatherRepository(apiService, geocodingRepository, weatherStorage, networkMonitor)
     }
 }
