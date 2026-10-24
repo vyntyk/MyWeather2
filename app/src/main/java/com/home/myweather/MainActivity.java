@@ -57,7 +57,7 @@ public class MainActivity extends AppCompatActivity {
         viewPager = findViewById(R.id.view_pager);
 
         if (savedInstanceState != null) {
-            lastGeo = savedInstanceState.getParcelable(STATE_LAST_GEO);
+            lastGeo = savedInstanceState.getSerializable(STATE_LAST_GEO, GeoLocation.class);
             lastGeoSource = savedInstanceState.getString(STATE_LAST_GEO_SOURCE, "GPS");
             currentPage = savedInstanceState.getInt(STATE_SELECTED_PAGE, 0);
         }

@@ -99,7 +99,7 @@ public class DayDetailFragment extends Fragment {
 
         DailyData day = null;
         if (getArguments() != null) {
-            day = (DailyData) getArguments().getSerializable(ARG_DAY);
+            day = getArguments().getSerializable(ARG_DAY, DailyData.class);
         }
 
         if (day != null && requireContext() != null) {

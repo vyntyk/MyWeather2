@@ -10,10 +10,11 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
@@ -50,8 +51,8 @@ public class NowFragment extends Fragment {
     private RecyclerView rvHourly;
     private HourlyAdapter hourlyAdapter;
 
-    private static final int LOCATION_PERMISSION_REQUEST = 101;
     private boolean locationHelperInitialized = false;
+    private ActivityResultLauncher<String> locationPermissionLauncher;
 
     @Inject
     LocationHelper locationHelper;
@@ -62,6 +63,13 @@ public class NowFragment extends Fragment {
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        locationPermissionLauncher = registerForActivityResult(
+                new ActivityResultContracts.RequestPermission(),
+                isGranted -> {
+                    if (isGranted) {
+                        fetchWeatherByLocation();
+                    }
+                });
         viewModel = new ViewModelProvider(this).get(NowViewModel.class);
     }
 
@@ -162,9 +170,7 @@ public class NowFragment extends Fragment {
                 == PackageManager.PERMISSION_GRANTED) {
             fetchWeatherByLocation();
         } else {
-            ActivityCompat.requestPermissions(requireActivity(),
-                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                    LOCATION_PERMISSION_REQUEST);
+            locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION);
         }
     }
 
@@ -180,16 +186,6 @@ public class NowFragment extends Fragment {
                 Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
             }
         });
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == LOCATION_PERMISSION_REQUEST && grantResults.length > 0
-                && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            fetchWeatherByLocation();
-        }
     }
 
     private void observeViewModel() {
