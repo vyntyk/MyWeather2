@@ -9,6 +9,7 @@
     <string name="weather">Weather</string>
     <string name="input_city">Find out the weather</string>
     <string name="weather_icon_description">Weather icon</string>
+    <string name="tap_hint">Нажми</string>
     <string name="app_description">Данное приложение было написано под влиянием плохой погоды и навеянных воспоминаний.
     Спасибо за то, что пользуетесь им.</string>
     <string name="favorite_cities_title">⭐ Избранные города</string>
@@ -17,5 +18,15 @@
     <string name="my_weather">Моя Погода</string>
     <string name="forecast_24h">Прогноз на 24 часа</string>
     <string name="forecast_5days">Прогноз на 5 дней</string>
-    <string name="back_button">← Назад</string>
-</resources>
+    <string name="back_button">Назад</string>
+        <string name="time_morning">Утро</string>
+        <string name="time_day">День</string>
+        <string name="time_evening">Вечер</string>
+        <string name="time_night">Ночь</string>
+        <string name="detail_section_temperature">Температура</string>
+        <string name="detail_feels_like">Ощущается как</string>
+        <string name="detail_section_wind">Ветер</string>
+        <string name="detail_section_humidity">Влажность</string>
+        <string name="detail_section_pressure">Давление</string>
+        <string name="detail_mmhg">мм рт. ст.</string>
+    </resources>

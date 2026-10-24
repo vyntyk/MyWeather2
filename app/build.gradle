@@ -57,10 +57,10 @@ android {
     }
 
     packaging {
-        jniLibs {
-            keepDebugSymbols += ['**/libmaplibre.so']
+            jniLibs {
+                keepDebugSymbols.add('**/libmaplibre.so')
+            }
         }
-    }
 }
 
 dependencies {
