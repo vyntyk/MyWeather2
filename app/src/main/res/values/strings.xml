@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">My Weather</string>
+    <string name="app_name">My Weather 2.0</string>
     <string name="logo">Weather in city</string>
     <string name="user_field">City</string>
     <string name="hint_user">Input city</string>
@@ -8,11 +8,11 @@
     <string name="bad_input">City name entered incorrectly</string>
     <string name="weather">Weather</string>
     <string name="input_city">Find out the weather</string>
-    <string name="weather_icon_description">Weather icon</string>
-    <string name="tap_hint">Нажми</string>
-    <string name="app_description">Данное приложение было написано под влиянием плохой погоды и навеянных воспоминаний.
+    <string name="weather_icon_description" translatable="false">Weather icon</string>
+    <string name="tap_hint" translatable="false">Нажми</string>
+    <string name="app_description" translatable="false">Данное приложение было написано под влиянием плохой погоды и навеянных воспоминаний.
     Спасибо за то, что пользуетесь им.</string>
-    <string name="favorite_cities_title">⭐ Избранные города</string>
+    <string name="favorite_cities_title" translatable="false">⭐ Избранные города</string>
     <string name="your_cities">Ваши города:</string>
     <string name="empty_cities">Нет сохранённых городов.\nДобавьте город для быстрого доступа!</string>
     <string name="my_weather">Моя Погода</string>
