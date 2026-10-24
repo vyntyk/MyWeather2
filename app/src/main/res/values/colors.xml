@@ -48,4 +48,9 @@
     <color name="blue_light">#81D4FA</color>
     <color name="black">#000000</color>
     <color name="white">#FFFFFF</color>
+    <color name="tap_hint_text">#FF9800</color>
+    <color name="detail_bg">#FFFFFF</color>
+    <color name="detail_text_primary">#1E293B</color>
+    <color name="detail_text_secondary">#64748B</color>
+    <color name="detail_divider">#E2E8F0</color>
 </resources>
