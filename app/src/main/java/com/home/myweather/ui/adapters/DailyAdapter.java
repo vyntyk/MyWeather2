@@ -101,9 +101,6 @@ public class DailyAdapter extends ListAdapter<DailyData, DailyAdapter.ViewHolder
         // Описание
         h.tvDesc.setText(day.description != null ? day.description : "—");
         
-        // Осадки (в процентах)
-        h.tvPop.setText(String.format(Locale.getDefault(), "Осадки: %.0f%%", day.pop * 100));
-        
         // Максимальная скорость ветра
         double maxWind = getMaxWindSpeed(day);
         h.tvWind.setText(String.format(Locale.getDefault(), "Ветер: %.1f м/с", maxWind));
@@ -213,7 +210,7 @@ public class DailyAdapter extends ListAdapter<DailyData, DailyAdapter.ViewHolder
 
     static class ViewHolder extends RecyclerView.ViewHolder {
         final ImageView ivWeather;
-        final TextView tvDay, tvTempRange, tvDesc, tvPop, tvWind, tvPressure, tvVisibility, tvHumidity;
+        final TextView tvDay, tvTempRange, tvDesc, tvWind, tvPressure, tvVisibility, tvHumidity;
 
         ViewHolder(View v) {
             super(v);
@@ -221,7 +218,6 @@ public class DailyAdapter extends ListAdapter<DailyData, DailyAdapter.ViewHolder
             tvDay = v.findViewById(R.id.tv_day);
             tvTempRange = v.findViewById(R.id.tv_temp_range);
             tvDesc = v.findViewById(R.id.tv_desc);
-            tvPop = v.findViewById(R.id.tv_pop);
             tvWind = v.findViewById(R.id.tv_wind);
             tvPressure = v.findViewById(R.id.tv_pressure);
             tvVisibility = v.findViewById(R.id.tv_visibility);

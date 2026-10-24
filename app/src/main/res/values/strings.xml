@@ -18,7 +18,7 @@
     <string name="my_weather">Моя Погода</string>
     <string name="forecast_24h">Прогноз на 24 часа</string>
     <string name="forecast_5days">Прогноз на 5 дней</string>
-    <string name="back_button">← Назад</string>
+    <string name="back_button">Назад</string>
         <string name="time_morning">Утро</string>
         <string name="time_day">День</string>
         <string name="time_evening">Вечер</string>
