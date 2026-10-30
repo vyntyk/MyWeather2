@@ -94,4 +94,10 @@ public final class WeatherStorage {
             Log.e(TAG, "Failed to persist " + dataType);
         }
     }
+
+    public void clear() {
+        SharedPreferences.Editor ed = prefs.edit();
+        ed.clear();
+        commit(ed, "all data");
+    }
 }

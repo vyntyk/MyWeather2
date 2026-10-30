@@ -4,6 +4,11 @@ plugins {
     id 'org.jetbrains.kotlin.plugin.serialization' version '2.0.20'
     id 'org.jetbrains.kotlin.kapt'
     id 'com.google.dagger.hilt.android'
+    id 'jacoco'
+}
+
+jacoco {
+    toolVersion = '0.8.12'
 }
 
 def localProperties = new Properties()
@@ -44,6 +49,7 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         debug {
+            enableUnitTestCoverage = true
         }
     }
 
@@ -114,6 +120,7 @@ dependencies {
     implementation 'androidx.room:room-ktx:2.6.1'
 
     implementation 'androidx.fragment:fragment-ktx:1.8.4'
+    implementation 'androidx.fragment:fragment-testing:1.8.4'
     implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7'
     implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.8.7'
     implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7'
@@ -145,11 +152,14 @@ dependencies {
 
         androidTestImplementation 'androidx.test.ext:junit:1.2.1'
         androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
+    androidTestImplementation 'androidx.test.espresso:espresso-contrib:3.6.1'
         androidTestImplementation 'androidx.test:rules:1.6.1'
         androidTestImplementation 'androidx.test:runner:1.6.1'
         androidTestImplementation 'androidx.compose.ui:ui-test-junit4:1.7.5'
         androidTestImplementation 'androidx.test.ext:truth:1.6.0'
         androidTestImplementation 'org.mockito:mockito-core:5.11.0'
+    androidTestImplementation 'androidx.arch.core:core-testing:2.2.0'
+    androidTestImplementation 'org.hamcrest:hamcrest:2.2'
     
     kapt 'com.google.dagger:hilt-compiler:2.52'
 

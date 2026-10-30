@@ -78,4 +78,38 @@ public final class TestWeatherFactory {
         field.setAccessible(true);
         return field.get(obj);
     }
+
+    public static com.home.myweather.data.model.ForecastItem createForecastItem(
+            long timestamp, double temp, double feelsLike, int humidity, int pressure,
+            double windSpeed, int windDeg, double pop) {
+        com.home.myweather.data.model.ForecastItem item = new com.home.myweather.data.model.ForecastItem();
+        item.timestamp = timestamp;
+        
+        com.home.myweather.data.model.ForecastItem.Main main = new com.home.myweather.data.model.ForecastItem.Main();
+        main.temp = temp;
+        main.feelsLike = feelsLike;
+        main.humidity = humidity;
+        main.pressure = pressure;
+        item.main = main;
+        
+        com.home.myweather.data.model.ForecastItem.Wind wind = new com.home.myweather.data.model.ForecastItem.Wind();
+        wind.speed = windSpeed;
+        wind.deg = windDeg;
+        item.wind = wind;
+        
+        item.pop = pop;
+        
+        com.home.myweather.data.model.ForecastItem.WeatherCondition[] conditions = 
+            new com.home.myweather.data.model.ForecastItem.WeatherCondition[1];
+        com.home.myweather.data.model.ForecastItem.WeatherCondition condition = 
+            new com.home.myweather.data.model.ForecastItem.WeatherCondition();
+        condition.id = 800;
+        condition.main = "Clear";
+        condition.description = "Clear sky";
+        condition.icon = "01d";
+        conditions[0] = condition;
+        item.weather = conditions;
+        
+        return item;
+    }
 }
