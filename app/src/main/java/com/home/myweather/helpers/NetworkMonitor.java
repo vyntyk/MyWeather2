@@ -15,7 +15,7 @@ import javax.inject.Inject;
  * трафик и время пользователя), когда сети нет: в этом случае отдаются
  * данные, сохранённые в {@link com.home.myweather.data.repository.WeatherStorage}.
  */
-public final class NetworkMonitor {
+public class NetworkMonitor {
 
     private static final String TAG = "NetworkMonitor";
 

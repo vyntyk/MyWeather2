@@ -50,6 +50,7 @@ android {
         }
         debug {
             enableUnitTestCoverage = true
+            enableAndroidTestCoverage = true
         }
     }
 
@@ -120,7 +121,7 @@ dependencies {
     implementation 'androidx.room:room-ktx:2.6.1'
 
     implementation 'androidx.fragment:fragment-ktx:1.8.4'
-    implementation 'androidx.fragment:fragment-testing:1.8.4'
+    debugImplementation 'androidx.fragment:fragment-testing:1.8.4'
     implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7'
     implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.8.7'
     implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7'
@@ -151,8 +152,8 @@ dependencies {
         testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.2'
 
         androidTestImplementation 'androidx.test.ext:junit:1.2.1'
-        androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
-    androidTestImplementation 'androidx.test.espresso:espresso-contrib:3.6.1'
+        androidTestImplementation 'androidx.test.espresso:espresso-core:3.7.0'
+    androidTestImplementation 'androidx.test.espresso:espresso-contrib:3.7.0'
         androidTestImplementation 'androidx.test:rules:1.6.1'
         androidTestImplementation 'androidx.test:runner:1.6.1'
         androidTestImplementation 'androidx.compose.ui:ui-test-junit4:1.7.5'
@@ -167,4 +168,13 @@ dependencies {
 
     
     implementation 'androidx.hilt:hilt-navigation-compose:1.2.0'
+}
+
+// Внутренние задачи анализа зависимостей AGP (analyze*DependenciesTask) падают
+// на валидации при рассинхроне версий Gradle и AGP. Тестам и покрытию они не нужны,
+// поэтому отключаем их выполнение.
+tasks.configureEach { task ->
+    if (task.name.startsWith('analyze') && task.name.endsWith('Dependencies')) {
+        task.enabled = false
+    }
 }

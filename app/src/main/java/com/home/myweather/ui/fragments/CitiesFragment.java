@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -41,6 +42,17 @@ public class CitiesFragment extends Fragment {
         rvCities = v.findViewById(R.id.rv_favorite_cities);
         tvEmpty = v.findViewById(R.id.tv_empty_cities);
 
+        etCityInput.setImeOptions(EditorInfo.IME_ACTION_DONE);
+        etCityInput.setOnEditorActionListener((tv, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_DONE
+                    || actionId == EditorInfo.IME_ACTION_GO
+                    || actionId == EditorInfo.IME_ACTION_SEARCH) {
+                onAddCityClick();
+                return true;
+            }
+            return false;
+        });
+
         citiesManager = new FavoriteCitiesManager(requireContext());
 
         rvCities.setLayoutManager(new LinearLayoutManager(requireContext()));
@@ -69,6 +81,7 @@ public class CitiesFragment extends Fragment {
     }
 
     private void onAddCityClick() {
+        hideKeyboard();
         String cityName = etCityInput.getText().toString().trim();
         
         if (cityName.isEmpty()) {
@@ -78,7 +91,6 @@ public class CitiesFragment extends Fragment {
 
         citiesManager.addCity(cityName);
         etCityInput.setText("");
-        hideKeyboard();
         updateCitiesList();
         Toast.makeText(requireContext(), "Город добавлен", Toast.LENGTH_SHORT).show();
     }

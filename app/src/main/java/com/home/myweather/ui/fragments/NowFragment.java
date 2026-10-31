@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.EditorInfo;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -105,6 +106,17 @@ public class NowFragment extends Fragment {
 
         userField.requestFocus();
 
+        userField.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
+        userField.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEARCH
+                    || actionId == EditorInfo.IME_ACTION_DONE
+                    || actionId == EditorInfo.IME_ACTION_GO) {
+                searchWeather();
+                return true;
+            }
+            return false;
+        });
+
         if (!locationHelperInitialized) {
             locationHelper.init(this);
             locationHelperInitialized = true;
@@ -144,12 +156,12 @@ public class NowFragment extends Fragment {
     }
 
     private void searchWeather() {
+        hideKeyboard();
         String city = userField.getText().toString().trim();
         if (city.isEmpty()) {
             Toast.makeText(requireContext(), "Введите название города", Toast.LENGTH_SHORT).show();
             return;
         }
-        hideKeyboard();
         loadWeatherByCity(city);
     }
 

@@ -7,122 +7,138 @@ import androidx.lifecycle.viewModelScope
 import com.home.myweather.data.model.GeoLocation
 import com.home.myweather.data.model.WeatherResponse
 import com.home.myweather.data.repository.WeatherRepository
-import com.home.myweather.utils.TemperatureConverter
 import com.home.myweather.utils.WeatherTileLayer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
+import java.util.Collections
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 
 /**
  * ViewModel for MapFragment.
  * Manages map state, weather display, and layer selection.
+ *
+ * Все изменения состояния проходят через [updateState]: меняется только та часть,
+ * которую затрагивает операция, остальные поля (центр карты, слой, карточка) сохраняются.
  */
 @HiltViewModel
 class MapViewModel @Inject constructor(
     private val weatherRepository: WeatherRepository
 ) : ViewModel() {
-    
-    private val _uiState = MutableLiveData<MapUiState>(MapUiState())
+
+    /**
+     * Актуальное состояние. Хранится отдельно от LiveData, потому что postValue
+     * применяется отложенно: чтение из LiveData сразу после записи вернуло бы старое значение.
+     */
+    private var state = MapUiState()
+    private val _uiState = MutableLiveData<MapUiState>(state)
     val uiState: LiveData<MapUiState> = _uiState
-    
+
     private var currentLocation: Pair<Double, Double>? = null
-    
+
     fun moveToLocation(lat: Double, lon: Double) {
         currentLocation = lat to lon
-        _uiState.postValue(
-            MapUiState(
-                centerLat = lat,
-                centerLon = lon
-            )
-        )
+        updateState { copy(centerLat = lat, centerLon = lon) }
     }
-    
+
     fun fetchWeatherForPoint(lat: Double, lon: Double) {
         viewModelScope.launch {
             weatherRepository.fetchWeatherByCoords(lat, lon, object : WeatherRepository.WeatherCallback {
                 override fun onSuccess(weather: WeatherResponse, geo: GeoLocation) {
-                    _uiState.postValue(
-                        MapUiState(
+                    updateState {
+                        copy(
                             weather = weather,
                             geo = geo,
                             showWeatherCard = true,
                             cityName = geo.name
                         )
-                    )
+                    }
                 }
-                
+
                 override fun onError(message: String) {
                     // Silent error handling
                 }
             })
         }
     }
-    
+
     fun showWeatherCard(weather: WeatherResponse, cityName: String?) {
-        _uiState.postValue(
-            MapUiState(
+        updateState {
+            copy(
                 weather = weather,
                 cityName = cityName,
                 showWeatherCard = true
             )
-        )
+        }
     }
-    
+
     fun hideWeatherCard() {
-        _uiState.postValue(MapUiState(showWeatherCard = false))
+        updateState { copy(showWeatherCard = false) }
     }
-    
+
     fun switchLayer(newLayer: WeatherTileLayer.Layer?) {
-        _uiState.postValue(MapUiState(activeLayer = newLayer))
+        updateState { copy(activeLayer = newLayer) }
     }
-    
+
     fun updateLayerButtons() {
         // UI updates for button states
     }
-    
+
+    /**
+     * Загружает температуру для набора точек и выводит маркеры на карту.
+     *
+     * Запросы идут параллельно через fetchCurrentWeatherMarker, который не отменяет
+     * друг друга. Ошибка отдельной точки пропускает её маркер. Пустой список
+     * сразу завершает загрузку.
+     */
     fun loadTemperatureMarkers(cities: List<Pair<Double, Double>>) {
-        _uiState.postValue(MapUiState(isLoadingMarkers = true))
-        
+        if (cities.isEmpty()) {
+            updateState { copy(temperatureMarkers = emptyList(), isLoadingMarkers = false) }
+            return
+        }
+
+        updateState { copy(isLoadingMarkers = true) }
+
         viewModelScope.launch {
-            // Simulate loading markers
-            val results = mutableListOf<TempMarker>()
-            var completedCount = 0
-            
+            val results: MutableList<TempMarker> = Collections.synchronizedList(mutableListOf())
+            val remaining = AtomicInteger(cities.size)
+
+            fun finishOne() {
+                if (remaining.decrementAndGet() == 0) {
+                    val markers = results.toList()
+                    updateState { copy(temperatureMarkers = markers, isLoadingMarkers = false) }
+                }
+            }
+
             for ((lat, lon) in cities) {
-                weatherRepository.fetchWeatherByCoords(lat, lon, object : WeatherRepository.WeatherCallback {
+                weatherRepository.fetchCurrentWeatherMarker(lat, lon, object : WeatherRepository.WeatherCallback {
                     override fun onSuccess(weather: WeatherResponse, geo: GeoLocation) {
                         weather.main?.temp?.let { temp ->
                             results.add(TempMarker(lat, lon, temp))
                         }
-                        completedCount++
-                        if (completedCount == cities.size) {
-                            _uiState.postValue(
-                                MapUiState(
-                                    temperatureMarkers = results,
-                                    isLoadingMarkers = false
-                                )
-                            )
-                        }
+                        finishOne()
                     }
-                    
+
                     override fun onError(message: String) {
-                        completedCount++
-                        if (completedCount == cities.size) {
-                            _uiState.postValue(
-                                MapUiState(
-                                    temperatureMarkers = results,
-                                    isLoadingMarkers = false
-                                )
-                            )
-                        }
+                        finishOne()
                     }
                 })
             }
         }
     }
-    
+
     fun clearTemperatureMarkers() {
-        _uiState.postValue(MapUiState(temperatureMarkers = emptyList()))
+        updateState { copy(temperatureMarkers = emptyList()) }
+    }
+
+    /**
+     * Единственная точка записи состояния: применяет изменение к актуальному состоянию
+     * и публикует его в LiveData.
+     */
+    @Synchronized
+    private fun updateState(change: MapUiState.() -> MapUiState) {
+        state = state.change()
+        _uiState.postValue(state)
     }
 }
 

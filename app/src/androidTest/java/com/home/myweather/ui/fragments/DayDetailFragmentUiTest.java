@@ -3,12 +3,14 @@ package com.home.myweather.ui.fragments;
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.*;
+import static org.hamcrest.Matchers.allOf;
 
 import androidx.fragment.app.testing.FragmentScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.home.myweather.R;
 import com.home.myweather.data.model.DailyData;
+import com.home.myweather.data.model.ForecastItem;
 import com.home.myweather.utils.TestWeatherFactory;
 
 import org.junit.Before;
@@ -26,7 +28,7 @@ public class DayDetailFragmentUiTest {
     public void setUp() {
         DailyData day = createTestDailyData();
         scenario = FragmentScenario.launchInContainer(DayDetailFragment.class, 
-            DayDetailFragment.newInstance(day).getArguments());
+            DayDetailFragment.newInstance(day).getArguments(), R.style.Theme_MyWeather);
     }
 
     @Test
@@ -97,16 +99,20 @@ public class DayDetailFragmentUiTest {
         onView(withId(R.id.tv_press_evening)).check(matches(isDisplayed()));
         onView(withId(R.id.tv_press_night)).check(matches(isDisplayed()));
         
-        onView(withText("мм рт. ст."))
-            .check(matches(isDisplayed()));
+        onView(isRoot()).check(matches(hasDescendant(allOf(
+                withText("мм рт. ст."), isDisplayed()))));
     }
 
     @Test
     public void showsTimeLabels() {
-        onView(withText("Утро")).check(matches(isDisplayed()));
-        onView(withText("День")).check(matches(isDisplayed()));
-        onView(withText("Вечер")).check(matches(isDisplayed()));
-        onView(withText("Ночь")).check(matches(isDisplayed()));
+        onView(isRoot()).check(matches(hasDescendant(allOf(
+                withText("Утро"), isDisplayed()))));
+        onView(isRoot()).check(matches(hasDescendant(allOf(
+                withText("День"), isDisplayed()))));
+        onView(isRoot()).check(matches(hasDescendant(allOf(
+                withText("Вечер"), isDisplayed()))));
+        onView(isRoot()).check(matches(hasDescendant(allOf(
+                withText("Ночь"), isDisplayed()))));
     }
 
     @Test

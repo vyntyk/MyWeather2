@@ -34,36 +34,42 @@ class ForecastViewModel @Inject constructor(
     }
     
     fun loadForecast(lat: Double, lon: Double) {
-        val locationKey = "$lat,$lon"
-        
-        // Проверяем ForecastCache сначала (из NowFragment)
-        val cachedItems = com.home.myweather.data.repository.ForecastCache.get(lat, lon)
-        if (cachedItems != null && cachedItems.isNotEmpty()) {
-            val grouped = com.home.myweather.utils.ForecastGrouper.groupByDay(cachedItems)
-            _uiState.postValue(ForecastUiState(days = grouped, isLoading = false))
-            return
-        }
-        
-        var hasPersistentCache = false
-        val savedGeo = weatherStorage.loadForecastGeo()
-        if (savedGeo != null &&
-            kotlin.math.abs(savedGeo.lat - lat) <= 0.01 &&
-            kotlin.math.abs(savedGeo.lon - lon) <= 0.01
-        ) {
-            val savedItems = weatherStorage.loadHourly()
-            if (savedItems.isNotEmpty()) {
-                val grouped = com.home.myweather.utils.ForecastGrouper.groupByDay(savedItems)
-                forecastCache[locationKey] = grouped
-                _uiState.value = ForecastUiState(days = grouped, isLoading = false)
-                hasPersistentCache = true
-            }
-        }
+        loadForecast(lat, lon, forceRefresh = false)
+    }
 
-        // Проверяем локальный кэш
-        val cached = forecastCache[locationKey]
-        if (cached != null && !hasPersistentCache) {
-            _uiState.postValue(ForecastUiState(days = cached, isLoading = false))
-            return
+    private fun loadForecast(lat: Double, lon: Double, forceRefresh: Boolean) {
+        val locationKey = "$lat,$lon"
+
+        var hasPersistentCache = false
+        if (!forceRefresh) {
+            // Проверяем ForecastCache сначала (из NowFragment)
+            val cachedItems = com.home.myweather.data.repository.ForecastCache.get(lat, lon)
+            if (cachedItems != null && cachedItems.isNotEmpty()) {
+                val grouped = com.home.myweather.utils.ForecastGrouper.groupByDay(cachedItems)
+                _uiState.postValue(ForecastUiState(days = grouped, isLoading = false))
+                return
+            }
+
+            val savedGeo = weatherStorage.loadForecastGeo()
+            if (savedGeo != null &&
+                kotlin.math.abs(savedGeo.lat - lat) <= 0.01 &&
+                kotlin.math.abs(savedGeo.lon - lon) <= 0.01
+            ) {
+                val savedItems = weatherStorage.loadHourly()
+                if (savedItems.isNotEmpty()) {
+                    val grouped = com.home.myweather.utils.ForecastGrouper.groupByDay(savedItems)
+                    forecastCache[locationKey] = grouped
+                    _uiState.value = ForecastUiState(days = grouped, isLoading = false)
+                    hasPersistentCache = true
+                }
+            }
+
+            // Проверяем локальный кэш
+            val cached = forecastCache[locationKey]
+            if (cached != null && !hasPersistentCache) {
+                _uiState.postValue(ForecastUiState(days = cached, isLoading = false))
+                return
+            }
         }
         
         if (!hasPersistentCache) {
@@ -98,7 +104,7 @@ class ForecastViewModel @Inject constructor(
     
     fun refresh() {
         currentGeo?.let { geo ->
-            loadForecast(geo.lat, geo.lon)
+            loadForecast(geo.lat, geo.lon, forceRefresh = true)
         }
     }
     
